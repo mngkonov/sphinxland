@@ -4,9 +4,11 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Сфинксляндия — Minecraft сервер</title>
-  <meta name="description" content="Сфинксляндия — Minecraft сервер для Java и Bedrock. Выживание, кланы, города и своя легенда.">
-  <meta name="theme-color" content="#07060a">
+  <meta name="description" content="Сфинксляндия — бесплатный Minecraft сервер для Java и Bedrock. Выживание, кланы, города, торговля и честный косметический донат.">
   <meta property="og:title" content="Сфинксляндия — Minecraft сервер">
+  <meta property="og:description" content="Пески, пирамиды и кланы. Java и Bedrock в одном мире.">
+  <meta name="theme-color" content="#07060a">
+  <meta property="og:site_name" content="Сфинксляндия">
   <meta property="og:image" content="img/logo.png">
   <link rel="icon" href="img/favicon.png" type="image/png">
   <link rel="apple-touch-icon" href="img/apple-touch-icon.png">
@@ -17,21 +19,20 @@
 </head>
 <body>
 
-<!-- ================= ШАПКА ================= -->
 <header class="header">
   <div class="wrap">
     <a class="logo" href="index.html"><img src="img/logo.png" alt=""><span>Сфинксляндия</span></a>
     <nav class="nav" id="nav">
-      <a href="#about">О сервере</a>
-      <a href="#start">Как начать</a>
-      <a href="#online">Онлайн</a>
+      <a href="index.html#about">О сервере</a>
+      <a href="guide.html">Как начать</a>
       <a href="rules.html">Правила</a>
-      <a href="donate.html">Донат</a>
       <a href="news.html">Новости</a>
-      <a href="#community">Сообщество</a>
+      <a href="players.html">Игроки</a>
+      <a href="donate.html">Донат</a>
     </nav>
     <div class="header__right">
-      <a class="btn btn--ghost" href="#play">Играть</a>
+      <a class="acc-btn" href="account.html" id="acc-btn"><img src="img/favicon.png" alt=""><span>Профиль</span></a>
+      <a class="btn btn--ghost" href="index.html#play">Играть</a>
       <button class="burger" id="burger" aria-label="Меню"><span></span><span></span><span></span></button>
     </div>
   </div>
@@ -65,8 +66,8 @@
       </div>
       <p class="ip-hint" id="ip-hint"></p>
       <div class="hero__actions">
-        <a class="btn btn--ghost" href="#start">Войти в мир <span class="arr">→</span></a>
-        <a class="btn btn--dark" href="donate.html">Донат</a>
+        <a class="btn btn--ghost" href="guide.html">Как подключиться <span class="arr">→</span></a>
+        <a class="btn btn--dark" href="account.html">Мой профиль</a>
       </div>
       <div class="status"><span class="dot"></span><span id="status-text">Проверяем сервер…</span></div>
     </div>
@@ -100,7 +101,7 @@
     <div class="spec"><div class="spec__num" id="spec-online">—</div><div class="spec__label caps">онлайн сейчас</div></div>
     <div class="spec"><div class="spec__num" id="spec-max">—</div><div class="spec__label caps">слотов</div></div>
     <div class="spec"><div class="spec__num" data-version>—</div><div class="spec__label caps">версия</div></div>
-    <div class="spec"><div class="spec__num">2<small>платформы</small></div><div class="spec__label caps">Java + Bedrock</div></div>
+    <div class="spec"><div class="spec__num">0<small>₽</small></div><div class="spec__label caps">вход бесплатный</div></div>
   </div>
 </div>
 
@@ -110,48 +111,42 @@
     <div class="head reveal">
       <span class="head__label caps">О сервере</span>
       <h2 class="head__title">Больше, чем<br>просто выживание</h2>
+      <p class="head__sub">Сфинксляндия — выживание в мире песков и пирамид. Здесь нет готовых городов: всё, что ты увидишь, построили игроки.</p>
     </div>
-
     <div class="showcase" id="features"></div>
-  </div>
-</section>
-
-<!-- ================= НОВОСТИ ================= -->
-<section class="section" id="news" style="padding-top:0">
-  <div class="wrap">
-    <div class="head head-row reveal">
-      <div>
-        <span class="head__label caps">Новости</span>
-        <h2 class="head__title">Что нового</h2>
-      </div>
-      <a class="btn btn--dark" href="news.html">Все новости <span class="arr">→</span></a>
-    </div>
-    <div class="news-grid" id="news-list"></div>
   </div>
 </section>
 
 <!-- ================= КАК НАЧАТЬ ================= -->
 <section class="section section--alt" id="start">
   <div class="wrap">
-    <div class="head reveal">
-      <span class="head__label caps">Старт</span>
-      <h2 class="head__title">Три шага до игры</h2>
+    <div class="head head-row reveal">
+      <div>
+        <span class="head__label caps">Старт</span>
+        <h2 class="head__title">Четыре шага до игры</h2>
+      </div>
+      <a class="btn btn--dark" href="guide.html">Подробный гайд <span class="arr">→</span></a>
     </div>
-    <div class="steps reveal">
+    <div class="steps steps--4 reveal">
       <div class="step">
         <div class="step__num">01</div>
         <h3>Скопируй IP</h3>
-        <p>Выбери Java или Bedrock и нажми «Копировать» в начале страницы.</p>
+        <p>Выбери Java или Bedrock и нажми «Копировать» <a href="#play">в начале страницы</a>.</p>
       </div>
       <div class="step">
         <div class="step__num">02</div>
+        <h3>Добавь сервер</h3>
+        <p>Пошаговая инструкция для ПК и телефона — <a href="guide.html">в гайде</a>.</p>
+      </div>
+      <div class="step">
+        <div class="step__num">03</div>
         <h3>Прочитай правила</h3>
         <p>Пара минут — и игра честная для всех. <a href="rules.html">Открыть правила →</a></p>
       </div>
       <div class="step">
-        <div class="step__num">03</div>
-        <h3>Заходи в игру</h3>
-        <p>Добавь сервер в список и вступай в наш <a data-link="discord">Discord</a>.</p>
+        <div class="step__num">04</div>
+        <h3>Знакомься</h3>
+        <p>Найди клан в <a data-link="discord">Discord</a> и, если хочешь, <a href="account.html">создай профиль</a>.</p>
       </div>
     </div>
   </div>
@@ -170,6 +165,59 @@
       <div class="reveal">
         <div class="bar"><div class="bar__fill" id="bar-fill"></div></div>
         <div class="players" id="players"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= НОВОСТИ ================= -->
+<section class="section section--alt" id="news">
+  <div class="wrap">
+    <div class="head head-row reveal">
+      <div>
+        <span class="head__label caps">Новости</span>
+        <h2 class="head__title">Что нового</h2>
+      </div>
+      <a class="btn btn--dark" href="news.html">Все новости <span class="arr">→</span></a>
+    </div>
+    <div class="news-grid" id="news-list"></div>
+  </div>
+</section>
+
+<!-- ================= ПРОФИЛЬ ================= -->
+<section class="section" id="profile">
+  <div class="wrap">
+    <div class="promo reveal">
+      <div>
+        <span class="head__label caps">Профиль игрока · по желанию</span>
+        <h2 class="head__title">Твой профиль<br><span class="grad-text">на сайте</span></h2>
+        <p class="head__sub">Играть можно и без регистрации. А профиль на сайте — это твоё место в истории сервера.</p>
+        <ul class="ticks">
+          <li>Ник, скин, платформа и клан на одной странице</li>
+          <li>Рассказ о себе и ссылка на Discord для тиммейтов</li>
+          <li>Привилегия, дата регистрации и статус «в игре»</li>
+          <li>Место в общем списке игроков — или скрытый профиль</li>
+        </ul>
+        <div class="tile__actions">
+          <a class="btn btn--primary" href="account.html">Создать профиль <span class="arr">→</span></a>
+          <a class="btn btn--dark" href="players.html">Список игроков</a>
+        </div>
+      </div>
+      <div class="pcard pcard--demo" aria-hidden="true">
+        <div class="pcard__top">
+          <img class="pcard__ava" src="img/logo.png" alt="">
+          <div>
+            <div class="pcard__nick">ТвойНик</div>
+            <div class="pcard__meta"><span class="chip chip--rank" style="--c:#ffa21f">Фараон</span><span class="chip">Java</span></div>
+          </div>
+        </div>
+        <p class="pcard__bio">Строю пирамиду у Красного оазиса. Ищу клан для торговли — пиши в Discord.</p>
+        <div class="pcard__grid">
+          <div><b>Клан</b><span>Пески Ра</span></div>
+          <div><b>С нами</b><span>с октября 2026</span></div>
+          <div><b>Discord</b><span>tvoynik</span></div>
+          <div><b>Статус</b><span><i class="dot on"></i> в игре</span></div>
+        </div>
       </div>
     </div>
   </div>
@@ -202,8 +250,20 @@
   </div>
 </section>
 
+<!-- ================= КОМАНДА (показывается, если заполнена в админке) ================= -->
+<section class="section section--alt" id="team" hidden>
+  <div class="wrap">
+    <div class="head reveal">
+      <span class="head__label caps">Команда</span>
+      <h2 class="head__title">Кто делает сервер</h2>
+      <p class="head__sub">К ним можно обратиться в Discord с вопросом, жалобой или идеей.</p>
+    </div>
+    <div class="team reveal" id="team-list"></div>
+  </div>
+</section>
+
 <!-- ================= FAQ ================= -->
-<section class="section section--alt" id="faq">
+<section class="section" id="faq">
   <div class="wrap">
     <div class="head head--center reveal">
       <span class="head__label caps">FAQ</span>
@@ -214,15 +274,15 @@
 </section>
 
 <!-- ================= СООБЩЕСТВО ================= -->
-<section class="section" id="community">
+<section class="section section--alt" id="community">
   <div class="wrap">
     <div class="head reveal">
       <span class="head__label caps">Комьюнити</span>
       <h2 class="head__title">Присоединяйся</h2>
     </div>
     <div class="socials reveal">
-      <a class="social" data-link="discord"><span class="social__name">Discord</span><span class="social__desc">Общение, тиммейты и помощь</span><span class="social__go caps">Перейти →</span></a>
-      <a class="social" data-link="telegram"><span class="social__name">Telegram</span><span class="social__desc">Новости и анонсы</span><span class="social__go caps">Перейти →</span></a>
+      <a class="social" data-link="discord"><span class="social__name">Discord</span><span class="social__desc">Общение, поиск клана, помощь и жалобы</span><span class="social__go caps">Перейти →</span></a>
+      <a class="social" data-link="telegram"><span class="social__name">Telegram</span><span class="social__desc">Новости, анонсы ивентов и обновлений</span><span class="social__go caps">Перейти →</span></a>
       <a class="social" data-link="youtube"><span class="social__name">YouTube</span><span class="social__desc">Трейлеры и обзоры построек</span><span class="social__go caps">Перейти →</span></a>
       <a class="social" data-link="twitch"><span class="social__name">Twitch</span><span class="social__desc">Стримы с сервера</span><span class="social__go caps">Перейти →</span></a>
     </div>
@@ -241,32 +301,13 @@
   </div>
 </section>
 
-<!-- ================= ПОДВАЛ ================= -->
-<footer class="footer">
-  <div class="wrap">
-    <div class="footer__grid">
-      <div class="footer__brand">
-        <img src="img/logo.png" alt="">
-        <p>Minecraft сервер для Java и Bedrock.<br>Строй, объединяйся, правь.</p>
-      </div>
-      <div><h4 class="caps">Сервер</h4><ul><li><a href="#about">О сервере</a></li><li><a href="#online">Онлайн</a></li><li><a href="#faq">FAQ</a></li><li><a href="news.html">Новости</a></li></ul></div>
-      <div><h4 class="caps">Информация</h4><ul><li><a href="rules.html">Правила</a></li><li><a href="donate.html">Донат</a></li></ul></div>
-      <div><h4 class="caps">Сообщество</h4><ul><li><a data-link="discord">Discord</a></li><li><a data-link="telegram">Telegram</a></li><li><a data-link="youtube">YouTube</a></li><li><a data-link="twitch">Twitch</a></li></ul></div>
-    </div>
-    <div class="footer__bottom">
-      <span>© 2026 Сфинксляндия</span>
-      <span>Не является официальным продуктом Minecraft. Не одобрено и не связано с Mojang или Microsoft.</span>
-    </div>
-  </div>
-</footer>
-
+<footer class="footer" id="footer"></footer>
 <div class="toast" id="toast"></div>
 <script>
-  /* Загружаем свежий контент (без кэша) и затем скрипт сайта */
-  (function () { var v = Date.now(), c = document.createElement("script");
-    c.src = "data/content.js?v=" + v;
-    c.onload = c.onerror = function () { var m = document.createElement("script"); m.src = "script.js?v=" + v; document.body.appendChild(m); };
-    document.body.appendChild(c); })();
+  /* Загружаем свежий контент (без кэша), затем скрипт сайта и скрипт страницы (data-extra) */
+  (function () { var v = Date.now(), extra = document.currentScript.getAttribute("data-extra");
+    function load(src, next) { var s = document.createElement("script"); s.src = src + "?v=" + v; s.onload = s.onerror = next || null; document.body.appendChild(s); }
+    load("data/content.js", function () { load("script.js", function () { if (extra) load(extra); }); }); })();
 </script>
 </body>
 </html>

@@ -18,7 +18,55 @@ const S = SITE.server || {};
 $$("[data-t]").forEach(el => { const v = get(SITE, el.dataset.t); if (v != null) el.innerHTML = fmt(v); });
 $$("[data-version]").forEach(el => el.textContent = S.version || "—");
 
+/* Текст с абзацами и списками: строки "- …" → маркированный, "1. …" → нумерованный */
+function rich(text) {
+  return String(text ?? "").split(/\n\s*\n/).map(block => {
+    const lines = block.split("\n").filter(l => l.trim());
+    if (lines.length && lines.every(l => /^\s*-\s+/.test(l))) return `<ul>${lines.map(l => `<li>${esc(l.replace(/^\s*-\s+/, ""))}</li>`).join("")}</ul>`;
+    if (lines.length && lines.every(l => /^\s*\d+[.)]\s+/.test(l))) return `<ol>${lines.map(l => `<li>${esc(l.replace(/^\s*\d+[.)]\s+/, ""))}</li>`).join("")}</ol>`;
+    return `<p>${lines.map(esc).join("<br>")}</p>`;
+  }).join("");
+}
+const head = (nick, size) => `https://mc-heads.net/avatar/${encodeURIComponent(nick || "MHF_Steve")}/${size}`;
+
+/* ---------- Подвал (общий для всех страниц) ---------- */
+if ($("footer")) {
+  $("footer").innerHTML = `<div class="wrap">
+    <div class="footer__grid">
+      <div class="footer__brand">
+        <img src="img/logo.png" alt="">
+        <p>Бесплатный Minecraft сервер для Java и Bedrock.<br>Строй, объединяйся, правь.</p>
+        <div class="footer__ip">
+          <button class="btn btn--dark" data-copy="java">IP Java</button>
+          <button class="btn btn--dark" data-copy="bedrock">IP Bedrock</button>
+        </div>
+      </div>
+      <div><h4 class="caps">Сервер</h4><ul><li><a href="index.html#about">О сервере</a></li><li><a href="index.html#online">Онлайн</a></li><li><a href="news.html">Новости</a></li><li><a href="index.html#faq">FAQ</a></li></ul></div>
+      <div><h4 class="caps">Игрокам</h4><ul><li><a href="guide.html">Как начать</a></li><li><a href="rules.html">Правила</a></li><li><a href="players.html">Игроки</a></li><li><a href="account.html">Мой профиль</a></li><li><a href="donate.html">Донат</a></li></ul></div>
+      <div><h4 class="caps">Сообщество</h4><ul><li><a data-link="discord">Discord</a></li><li><a data-link="telegram">Telegram</a></li><li><a data-link="youtube">YouTube</a></li><li><a data-link="twitch">Twitch</a></li></ul></div>
+    </div>
+    <div class="footer__bottom">
+      <span>© 2026 Сфинксляндия</span>
+      <span>Не является официальным продуктом Minecraft. Не одобрено и не связано с Mojang или Microsoft.</span>
+    </div>
+  </div>`;
+}
+
 /* ---------- Шапка ---------- */
+const page = location.pathname.split("/").pop() || "index.html";
+$$(".nav a").forEach(a => { if (a.getAttribute("href") === page) a.classList.add("active"); });
+/* Кнопка профиля: если игрок уже входил — показываем его голову и ник */
+(function accBtn() {
+  const b = $("acc-btn"); if (!b) return;
+  if (page === "account.html") b.classList.add("active");
+  let nick = "", logged = false;
+  try {
+    nick = localStorage.getItem("sl-nick") || "";
+    logged = Object.keys(localStorage).some(k => /^sb-.+-auth-token$/.test(k));
+  } catch {}
+  if (logged && nick) { b.querySelector("img").src = head(nick, 24); b.querySelector("span").textContent = nick; }
+  else if ((SITE.auth || {}).supabaseUrl) b.querySelector("span").textContent = "Войти";
+})();
 const header = document.querySelector(".header");
 const onScroll = () => header && header.classList.toggle("scrolled", scrollY > 30);
 addEventListener("scroll", onScroll, { passive: true }); onScroll();
@@ -82,6 +130,37 @@ if ($("rules-full")) {
     </div>`).join("");
 }
 
+/* ---------- Гайд ---------- */
+if ($("guide")) {
+  const secs = (SITE.guide || []).map((g, i) => ({ ...g, id: "g" + (i + 1) }));
+  $("guide").innerHTML = secs.map((g, i) => `
+    <section class="guide-sec" id="${g.id}">
+      <h2><span>${String(i + 1).padStart(2, "0")}</span>${esc(g.title)}</h2>
+      <div class="prose">${rich(g.text)}</div>
+    </section>`).join("");
+  const cmds = (SITE.commands || []).filter(c => c.cmd);
+  if (cmds.length) {
+    $("commands").hidden = false;
+    $("commands-list").innerHTML = cmds.map(c => `<div class="cmd"><code>${esc(c.cmd)}</code><span>${esc(c.desc)}</span></div>`).join("");
+  }
+  $("guide-toc").innerHTML = `<span class="caps muted">Содержание</span>` +
+    [...secs, ...(cmds.length ? [{ id: "commands", title: "Полезные команды" }] : [])]
+      .map(g => `<a href="#${g.id}">${esc(g.title)}</a>`).join("");
+}
+
+/* ---------- Команда ---------- */
+if ($("team-list")) {
+  const team = (SITE.team || []).filter(t => t.nick);
+  if (team.length) {
+    $("team").hidden = false;
+    $("team-list").innerHTML = team.map(t => `
+      <div class="member">
+        <img src="${head(t.nick, 64)}" alt="" loading="lazy">
+        <div><b>${esc(t.nick)}</b><span class="caps">${esc(t.role)}</span>${t.text ? `<p>${fmt(t.text)}</p>` : ""}</div>
+      </div>`).join("");
+  }
+}
+
 /* ---------- FAQ ---------- */
 if ($("faq-list")) {
   $("faq-list").innerHTML = (SITE.faq || []).map(f =>
@@ -135,11 +214,20 @@ $$("[data-copy]").forEach(b => b.addEventListener("click", () =>
   copyText(S[b.dataset.copy === "current" ? edition : b.dataset.copy] || "")));
 
 /* ---------- Онлайн сервера (mcsrvstat.us) ---------- */
+/* Статус сервера; используется и на главной, и в профилях (кто сейчас в игре) */
+let statusCache = null;
+function getStatus() {
+  if (!S.java) return Promise.reject(new Error("нет IP"));
+  if (!statusCache || Date.now() - statusCache.t > 55000) {
+    statusCache = { t: Date.now(), p: fetch(`https://api.mcsrvstat.us/3/${S.java}`, { cache: "no-store" }).then(r => r.json()) };
+    statusCache.p.catch(() => { statusCache = null; });
+  }
+  return statusCache.p;
+}
 async function loadStatus() {
   if ((!$("status-text") && !$("online-big")) || !S.java) return;
   try {
-    const r = await fetch(`https://api.mcsrvstat.us/3/${S.java}`, { cache: "no-store" });
-    const d = await r.json();
+    const d = await getStatus();
     const on = !!d.online, now = on ? (d.players?.online ?? 0) : 0, max = on ? (d.players?.max ?? 0) : 0;
     $$(".dot").forEach(x => { x.classList.toggle("on", on); x.classList.toggle("off", !on); });
     if ($("status-text")) $("status-text").textContent = on ? `Онлайн · ${now} из ${max}` : "Сервер офлайн";
@@ -152,7 +240,7 @@ async function loadStatus() {
     if (list) {
       const ps = d.players?.list || [];
       list.innerHTML = ps.length
-        ? ps.map(p => { const n = p.name || p; return `<div class="player"><img src="https://mc-heads.net/avatar/${encodeURIComponent(n)}/26" alt="" loading="lazy"><span>${esc(n)}</span></div>`; }).join("")
+        ? ps.map(p => { const n = p.name || p; return `<a class="player" href="players.html?nick=${encodeURIComponent(n)}"><img src="${head(n, 26)}" alt="" loading="lazy"><span>${esc(n)}</span></a>`; }).join("")
         : `<p class="players-empty">${on && now ? "Сервер скрывает список ников, но игроки на месте." : "Сейчас никого нет — самое время стать первым."}</p>`;
     }
   } catch {

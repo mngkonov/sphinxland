@@ -4,8 +4,10 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Донат — Сфинксляндия</title>
-  <meta name="description" content="Привилегии сервера Сфинксляндия. Поддержи проект и получи косметические бонусы.">
+  <meta name="description" content="Привилегии сервера Сфинксляндия. Поддержи проект и получи косметические бонусы — без преимущества в игре.">
   <meta name="theme-color" content="#07060a">
+  <meta property="og:site_name" content="Сфинксляндия">
+  <meta property="og:image" content="img/logo.png">
   <link rel="icon" href="img/favicon.png" type="image/png">
   <link rel="apple-touch-icon" href="img/apple-touch-icon.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -20,14 +22,14 @@
     <a class="logo" href="index.html"><img src="img/logo.png" alt=""><span>Сфинксляндия</span></a>
     <nav class="nav" id="nav">
       <a href="index.html#about">О сервере</a>
-      <a href="index.html#start">Как начать</a>
-      <a href="index.html#online">Онлайн</a>
+      <a href="guide.html">Как начать</a>
       <a href="rules.html">Правила</a>
-      <a href="donate.html" class="active">Донат</a>
       <a href="news.html">Новости</a>
-      <a href="index.html#community">Сообщество</a>
+      <a href="players.html">Игроки</a>
+      <a href="donate.html">Донат</a>
     </nav>
     <div class="header__right">
+      <a class="acc-btn" href="account.html" id="acc-btn"><img src="img/favicon.png" alt=""><span>Профиль</span></a>
       <a class="btn btn--ghost" href="index.html#play">Играть</a>
       <button class="burger" id="burger" aria-label="Меню"><span></span><span></span><span></span></button>
     </div>
@@ -59,7 +61,12 @@
 
     <div class="total"><span class="caps muted">Итого</span><b id="total">—</b></div>
     <a class="btn btn--primary btn--block" id="buy"><span class="lbl">Купить</span> <span class="arr">→</span></a>
-    <p class="note">После оплаты привилегия выдаётся автоматически на твой ник. Если что-то пошло не так — напиши администрации в <a data-link="discord" style="color:var(--yellow)">Discord</a>. Нажимая «Купить», ты соглашаешься с <a href="rules.html" style="color:var(--yellow)">правилами сервера</a>.</p>
+    <p class="note">При оплате укажи свой игровой ник — привилегия выдаётся на него автоматически. Если что-то пошло не так — напиши администрации в <a data-link="discord" style="color:var(--yellow)">Discord</a>. Нажимая «Купить», ты соглашаешься с <a href="rules.html" style="color:var(--yellow)">правилами сервера</a>.</p>
+
+    <div class="support-box">
+      <h3>Куда идут деньги</h3>
+      <p>Аренда хостинга, новые ивенты и развитие сайта. Сервер живёт на поддержку игроков — спасибо каждому.</p>
+    </div>
 
     <div class="support-box">
       <h3>Просто поддержать</h3>
@@ -69,22 +76,13 @@
   </section>
 </main>
 
-<footer class="footer">
-  <div class="wrap">
-    <div class="footer__bottom" style="border-top:0;padding-top:0">
-      <span>© 2026 Сфинксляндия</span>
-      <span>Не является официальным продуктом Minecraft. Не одобрено и не связано с Mojang или Microsoft.</span>
-    </div>
-  </div>
-</footer>
-
+<footer class="footer" id="footer"></footer>
 <div class="toast" id="toast"></div>
 <script>
-  /* Загружаем свежий контент (без кэша) и затем скрипт сайта */
-  (function () { var v = Date.now(), c = document.createElement("script");
-    c.src = "data/content.js?v=" + v;
-    c.onload = c.onerror = function () { var m = document.createElement("script"); m.src = "script.js?v=" + v; document.body.appendChild(m); };
-    document.body.appendChild(c); })();
+  /* Загружаем свежий контент (без кэша), затем скрипт сайта и скрипт страницы (data-extra) */
+  (function () { var v = Date.now(), extra = document.currentScript.getAttribute("data-extra");
+    function load(src, next) { var s = document.createElement("script"); s.src = src + "?v=" + v; s.onload = s.onerror = next || null; document.body.appendChild(s); }
+    load("data/content.js", function () { load("script.js", function () { if (extra) load(extra); }); }); })();
 </script>
 </body>
 </html>

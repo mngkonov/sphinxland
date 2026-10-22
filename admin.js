@@ -37,6 +37,9 @@ const SECTIONS = [
       { title: "Соцсети", fields: [
         { row: [{ path: "links.discord", label: "Discord", type: "url", ph: "https://discord.gg/…" }, { path: "links.telegram", label: "Telegram", type: "url", ph: "https://t.me/…" }] },
         { row: [{ path: "links.youtube", label: "YouTube", type: "url", ph: "https://youtube.com/@…" }, { path: "links.twitch", label: "Twitch", type: "url", ph: "https://twitch.tv/…" }] } ] },
+      { title: "Профили игроков (Supabase)", fields: [
+        { path: "auth.supabaseUrl", label: "Project URL", type: "url", ph: "https://xxxx.supabase.co", hint: "Supabase → Project Settings → API. Пока поле пустое, на сайте вместо регистрации показывается «Скоро откроется»." },
+        { path: "auth.supabaseKey", label: "Публичный ключ (anon / publishable)", ph: "eyJ… или sb_publishable_…", hint: "Только публичный ключ! Секретный (service_role / secret) сюда вставлять нельзя — он даёт полный доступ к базе." } ] },
     ] },
   { id: "hero", title: "Главный экран", intro: "Большой заголовок в начале сайта и баннер доната на главной.",
     cards: [
@@ -68,6 +71,19 @@ const SECTIONS = [
           { key: "items", label: "Пункты", type: "list", add: "Добавить пункт", title: x => x.text, newItem: () => ({ text: "", punish: "" }),
             fields: [{ key: "text", label: "Правило", type: "textarea", rows: 3 }, { key: "punish", label: "Наказание (необязательно)" }] }] } },
     ] },
+  { id: "guide", title: "Гайд", intro: "Страница «Как начать». В тексте: пустая строка — новый абзац, строки с «- » — список, строки с «1. » — нумерованные шаги.",
+    cards: [
+      { title: "Разделы гайда", list: { path: "guide", add: "Добавить раздел", title: x => x.title,
+        newItem: () => ({ title: "Новый раздел", text: "" }),
+        fields: [{ key: "title", label: "Заголовок" }, { key: "text", label: "Текст", type: "textarea", rows: 8 }] } },
+      { title: "Полезные команды (блок скрыт, пока список пуст)", list: { path: "commands", add: "Добавить команду", title: x => x.cmd, sub: x => x.desc,
+        newItem: () => ({ cmd: "/", desc: "" }),
+        fields: [{ row: [{ key: "cmd", label: "Команда", ph: "/spawn" }, { key: "desc", label: "Что делает", ph: "Телепорт на спавн" }] }] } },
+    ] },
+  { id: "team", title: "Команда", intro: "Блок «Кто делает сервер» на главной. Пока список пуст, блок скрыт. Аватар берётся по нику из Minecraft.",
+    cards: [{ title: "Команда", list: { path: "team", add: "Добавить человека", title: x => x.nick, sub: x => x.role,
+      newItem: () => ({ nick: "", role: "", text: "" }),
+      fields: [{ row: [{ key: "nick", label: "Ник в игре" }, { key: "role", label: "Роль", ph: "Администратор" }] }, { key: "text", label: "Пара слов (необязательно)", type: "textarea", rows: 2 }] } }] },
   { id: "faq", title: "FAQ", intro: "Частые вопросы на главной.",
     cards: [{ title: "Вопросы", list: { path: "faq", add: "Добавить вопрос", title: x => x.q,
       newItem: () => ({ q: "Новый вопрос", a: "" }),
@@ -312,8 +328,15 @@ function cleaned() {
   (d.donate?.tiers || []).forEach(t => t.perks = (t.perks || []).map(p => String(p).trim()).filter(Boolean));
   return d;
 }
+/* Секретный ключ Supabase нельзя публиковать: сайт открытый, ключ увидят все */
+function isSecretKey(k) {
+  k = String(k || "").trim();
+  if (/^sb_secret_/i.test(k)) return true;
+  try { return JSON.parse(atob(k.split(".")[1].replace(/-/g, "+").replace(/_/g, "/"))).role === "service_role"; } catch { return false; }
+}
 async function publish() {
   if (!dirty) { toast("Нет изменений для публикации"); return; }
+  if (isSecretKey(data.auth?.supabaseKey)) { toast("В поле ключа Supabase вставлен СЕКРЕТНЫЙ ключ. Нужен публичный (anon / publishable).", true); show("main"); return; }
   const text = "/* Контент сайта. Редактируется через admin.html — вручную менять не нужно. */\nwindow.SITE = " + JSON.stringify(cleaned(), null, 2) + ";\n";
   const msg = `Админка: обновление сайта (${cfg.login || "admin"})`;
   busy("Публикуем…");
