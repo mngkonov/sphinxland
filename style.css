@@ -599,3 +599,100 @@ a.player:hover { border-color: rgba(255,201,42,.5); }
   .author__ava { width: min(100%, 260px); }
   .author__text { font-size: 16px; }
 }
+
+/* =========================================================
+   Кланы
+   ========================================================= */
+.btn--sm { min-height: 34px; padding: 0 12px; font-size: 11px; gap: 8px; }
+.btn--danger:hover { border-color: var(--red); color: var(--red); }
+
+/* Флаг: пиксельный SVG 8×12 */
+.flag { display: block; aspect-ratio: 2 / 3; height: auto; flex: none; image-rendering: pixelated; box-shadow: 0 0 0 1px rgba(0,0,0,.5); }
+.flag--xs { width: 10px; display: inline-block; vertical-align: -3px; margin-right: 6px; box-shadow: none; }
+.flag--sm { width: 28px; }
+.flag--md { width: 56px; }
+.flag--lg { width: 100%; }
+.chip--clan { color: var(--text); gap: 0; }
+.chip--clan .flag--xs { margin-right: 6px; }
+a.chip--clan:hover { border-color: var(--yellow); }
+.clan-link { color: var(--yellow); }
+.clan-link:hover { text-decoration: underline; }
+.pcard__grid .clan-link { display: inline; }
+
+/* Строка клана в профиле */
+.clan-row { display: flex; align-items: center; gap: 14px; padding: 12px; border: 1px solid var(--line); background: var(--bg); transition: border-color .2s; }
+a.clan-row:hover { border-color: var(--yellow); }
+.clan-row > span:not(.arr) { display: grid; flex: 1; min-width: 0; }
+.clan-row b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.clan-row .arr { color: var(--yellow); }
+.clan-row--req { margin-top: 8px; }
+.clan-row--req a:hover b { color: var(--yellow); }
+#my-clan .tile__actions { margin-top: 18px; }
+
+/* Список кланов */
+.cl-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 12px; }
+.cl-card { display: flex; gap: 20px; padding: 20px; border: 1px solid var(--line); background: var(--bg-2); transition: border-color .2s, transform .2s; min-width: 0; }
+.cl-card:hover { border-color: rgba(255,201,42,.5); transform: translateY(-2px); }
+.cl-card__flag { padding-top: 2px; }
+.cl-card__body { min-width: 0; display: flex; flex-direction: column; }
+.cl-card__tag { font-family: var(--pixel); color: var(--yellow); font-size: 18px; line-height: 1; }
+.cl-card b { font-family: var(--head); font-weight: 600; font-size: 18px; line-height: 1.2; margin-top: 6px; overflow-wrap: anywhere; }
+.cl-card p { color: var(--muted); font-size: 14px; margin-top: 6px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.cl-card__meta { display: flex; flex-wrap: wrap; gap: 6px; margin-top: auto; padding-top: 12px; }
+
+/* Страница клана: баннер на древке */
+.clan-hero { display: grid; grid-template-columns: 200px minmax(0, 1fr); gap: 56px; align-items: start; margin-bottom: 40px; }
+.banner { position: relative; padding: 0 0 0 0; }
+.banner::before { content: ""; position: absolute; left: -10px; right: -10px; top: -10px; height: 8px; background: #6b4a2b; box-shadow: inset 0 -2px 0 rgba(0,0,0,.35); }
+.banner .flag { box-shadow: 0 24px 50px rgba(0,0,0,.5), 0 0 0 1px rgba(0,0,0,.6); }
+.clan-tag { font-family: var(--pixel); color: var(--yellow); font-weight: 500; }
+.clan-desc { color: rgba(243,239,228,.8); font-size: 17px; max-width: 680px; margin-top: 22px; }
+.clan-actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 28px; }
+.clan-actions .muted a { color: var(--yellow); }
+.req-form { display: grid; gap: 10px; width: 100%; max-width: 560px; }
+.req-form .btn { justify-self: start; }
+.dash--single { grid-template-columns: minmax(0, 1fr); }
+
+/* Участники и заявки */
+.members { display: grid; }
+.member-row, .req-row { display: grid; grid-template-columns: 32px minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--line); }
+.member-row:last-child, .req-row:last-child { border-bottom: 0; }
+.member-row img, .req-row img { width: 32px; height: 32px; image-rendering: pixelated; }
+.member-row__main { display: grid; min-width: 0; }
+.member-row__main a:hover b { color: var(--yellow); }
+.member-row__main .dot { display: inline-block; margin-left: 8px; vertical-align: middle; }
+.member-row__chips { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+.member-row__tools, .req-row__tools { grid-column: 2 / -1; display: flex; flex-wrap: wrap; gap: 6px; }
+.req-row { align-items: start; }
+.req-row p { color: rgba(243,239,228,.8); font-size: 14px; margin: 6px 0 2px; }
+.req-row__tools { grid-column: auto; }
+
+/* Форма клана */
+.clan-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 32px; align-items: start; }
+.grid-name { display: grid; grid-template-columns: minmax(0, 1fr) 120px; gap: 0 14px; }
+.input--tag { font-family: var(--pixel); font-size: 20px; letter-spacing: .08em; text-transform: uppercase; color: var(--yellow); }
+.tag-prev { margin: -8px 0 18px; }
+.tag-prev b { font-family: var(--pixel); color: var(--yellow); font-weight: 500; font-size: 15px; }
+
+/* Редактор флага */
+.fe { display: grid; grid-template-columns: minmax(140px, 200px) minmax(0, 1fr); gap: 20px; align-items: start; }
+.fe__grid { display: grid; grid-template-columns: repeat(var(--fw), 1fr); aspect-ratio: 2 / 3; border: 1px solid var(--line-2); touch-action: none; cursor: crosshair; user-select: none; }
+.fe__grid i { display: block; box-shadow: inset 0 0 0 .5px rgba(0,0,0,.18); }
+.fe__grid i:hover { box-shadow: inset 0 0 0 2px rgba(255,255,255,.7); }
+.fe__pal { display: grid; grid-template-columns: repeat(8, 1fr); gap: 4px; margin-bottom: 14px; }
+.fe__pal button { aspect-ratio: 1; border: 1px solid rgba(0,0,0,.5); background: var(--d); cursor: pointer; padding: 0; border-radius: 0; }
+.fe__pal button.active { outline: 2px solid var(--yellow); outline-offset: 1px; }
+.fe__tools { display: flex; flex-wrap: wrap; gap: 6px; }
+.fe__tools button { background: var(--bg); border: 1px solid var(--line-2); color: var(--text); padding: 7px 10px; font-family: var(--mono); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; cursor: pointer; }
+.fe__tools button:hover { border-color: var(--yellow); color: var(--yellow); }
+.fe .field__hint { margin-top: 12px; }
+
+@media (max-width: 1240px) { .nav a { padding: 8px 9px; letter-spacing: .04em; } }
+@media (max-width: 760px) {
+  .clan-hero { grid-template-columns: 1fr; gap: 30px; }
+  .banner { width: 140px; margin-top: 10px; }
+  .fe { grid-template-columns: 1fr; }
+  .fe__grid { width: min(100%, 220px); }
+  .cl-grid { grid-template-columns: 1fr; }
+  .member-row__chips { grid-column: 2 / -1; justify-content: flex-start; }
+}

@@ -42,7 +42,7 @@ if ($("footer")) {
         </div>
       </div>
       <div><h4 class="caps">Сервер</h4><ul><li><a href="index.html#about">О сервере</a></li><li><a href="index.html#online">Онлайн</a></li><li><a href="news.html">Новости</a></li><li><a href="index.html#faq">FAQ</a></li></ul></div>
-      <div><h4 class="caps">Игрокам</h4><ul><li><a href="guide.html">Как начать</a></li><li><a href="rules.html">Правила</a></li><li><a href="players.html">Игроки</a></li><li><a href="account.html">Мой профиль</a></li><li><a href="donate.html">Донат</a></li></ul></div>
+      <div><h4 class="caps">Игрокам</h4><ul><li><a href="guide.html">Как начать</a></li><li><a href="rules.html">Правила</a></li><li><a href="players.html">Игроки</a></li><li><a href="clans.html">Кланы</a></li><li><a href="account.html">Мой профиль</a></li><li><a href="donate.html">Донат</a></li></ul></div>
       <div><h4 class="caps">Сообщество</h4><ul><li><a data-link="discord">Discord</a></li><li><a data-link="telegram">Telegram</a></li><li><a data-link="youtube">YouTube</a></li><li><a data-link="twitch">Twitch</a></li></ul></div>
     </div>
     <div class="footer__bottom">

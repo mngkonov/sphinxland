@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Кланы — Сфинксляндия</title>
+  <meta name="description" content="Кланы сервера Сфинксляндия: флаги, теги, участники. Создай свой клан или вступи в чужой.">
+  <meta name="theme-color" content="#0d0c09">
+  <meta property="og:site_name" content="Сфинксляндия">
+  <meta property="og:image" content="img/logo.png">
+  <link rel="icon" href="img/favicon.png" type="image/png">
+  <link rel="apple-touch-icon" href="img/apple-touch-icon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Manrope:wght@400;500;600;700&family=Pixelify+Sans:wght@500&family=Unbounded:wght@500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+</head>
+<body>
+
+<header class="header">
+  <div class="wrap">
+    <a class="logo" href="index.html"><img src="img/logo.png" alt=""><span>Сфинксляндия</span></a>
+    <nav class="nav" id="nav">
+      <a href="index.html#about">О сервере</a>
+      <a href="guide.html">Как начать</a>
+      <a href="rules.html">Правила</a>
+      <a href="news.html">Новости</a>
+      <a href="players.html">Игроки</a>
+      <a href="clans.html">Кланы</a>
+      <a href="donate.html">Донат</a>
+    </nav>
+    <div class="header__right">
+      <a class="acc-btn" href="account.html" id="acc-btn"><img src="img/favicon.png" alt=""><span>Профиль</span></a>
+      <a class="btn btn--ghost" href="index.html#play">Играть</a>
+      <button class="burger" id="burger" aria-label="Меню"><span></span><span></span><span></span></button>
+    </div>
+  </div>
+</header>
+
+<main class="acc-page">
+  <div class="wrap" id="clans-root">
+    <div class="acc-loading"><span class="spinner"></span> Загружаем кланы…</div>
+  </div>
+</main>
+
+<footer class="footer" id="footer"></footer>
+<div class="toast" id="toast"></div>
+<script data-extra="account.js">
+  /* Загружаем свежий контент (без кэша), затем скрипт сайта и скрипт страницы (data-extra) */
+  (function () { var v = Date.now(), extra = document.currentScript.getAttribute("data-extra");
+    function load(src, next) { var s = document.createElement("script"); s.src = src + "?v=" + v; s.onload = s.onerror = next || null; document.body.appendChild(s); }
+    load("data/content.js", function () { load("script.js", function () { if (extra) load(extra); }); }); })();
+</script>
+</body>
+</html>
