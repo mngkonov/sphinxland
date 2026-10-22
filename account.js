@@ -278,7 +278,7 @@
                 <label class="field"><span class="field__label">Платформа</span><select class="input" name="platform"><option value="java">Java</option><option value="bedrock" ${p.platform === "bedrock" ? "selected" : ""}>Bedrock</option></select></label>
               </div>
               <div class="grid-2">
-                <label class="field"><span class="field__label">Клан</span><input class="input" name="clan" maxlength="32" value="${esc(p.clan || "")}" placeholder="Пески Ра"></label>
+                <label class="field"><span class="field__label">Клан</span><input class="input" name="clan" maxlength="32" value="${esc(p.clan || "")}" placeholder="Название клана"></label>
                 <label class="field"><span class="field__label">Discord</span><input class="input" name="discord" maxlength="40" value="${esc(p.discord || "")}" placeholder="nick"></label>
               </div>
               <label class="field"><span class="field__label">О себе</span><textarea class="input" name="bio" rows="4" maxlength="300" placeholder="Что строишь, чем занимаешься, кого ищешь">${esc(p.bio || "")}</textarea></label>

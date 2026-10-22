@@ -4,17 +4,17 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Сфинксляндия — Minecraft сервер</title>
-  <meta name="description" content="Сфинксляндия — бесплатный Minecraft сервер для Java и Bedrock. Выживание, кланы, города, торговля и честный косметический донат.">
+  <meta name="description" content="Сфинксляндия — Minecraft-сервер стримера FatSphinx для его зрителей. Java и Bedrock, выживание, кланы и честный косметический донат.">
   <meta property="og:title" content="Сфинксляндия — Minecraft сервер">
-  <meta property="og:description" content="Пески, пирамиды и кланы. Java и Bedrock в одном мире.">
-  <meta name="theme-color" content="#07060a">
+  <meta property="og:description" content="Сервер FatSphinx, где зрители встречаются и играют вместе. Java и Bedrock в одном мире.">
+  <meta name="theme-color" content="#0d0c09">
   <meta property="og:site_name" content="Сфинксляндия">
   <meta property="og:image" content="img/logo.png">
   <link rel="icon" href="img/favicon.png" type="image/png">
   <link rel="apple-touch-icon" href="img/apple-touch-icon.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Pixelify+Sans:wght@500&family=Unbounded:wght@500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Manrope:wght@400;500;600;700&family=Pixelify+Sans:wght@500&family=Unbounded:wght@500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -40,15 +40,11 @@
 
 <!-- ================= HERO ================= -->
 <section class="hero" id="play">
-  <div class="hero__bg"></div>
-  <canvas class="embers" id="embers"></canvas>
+  <canvas class="blocks" id="blocks" aria-hidden="true"></canvas>
 
   <div class="wrap">
     <div>
-      <div class="hero__badge caps">
-        <img src="img/logo.png" alt="">
-        <span>Java &amp; Bedrock · <span data-version></span><br><span data-t="hero.badge"></span></span>
-      </div>
+      <div class="hero__badge"><span class="px"></span><span data-t="hero.badge"></span></div>
       <h1 class="hero__title">
         <span class="l1" data-t="hero.line1"></span>
         <span class="l1" data-t="hero.line2"></span>
@@ -66,33 +62,22 @@
       </div>
       <p class="ip-hint" id="ip-hint"></p>
       <div class="hero__actions">
-        <a class="btn btn--ghost" href="guide.html">Как подключиться <span class="arr">→</span></a>
-        <a class="btn btn--dark" href="account.html">Мой профиль</a>
+        <a class="btn btn--primary" href="guide.html">Как подключиться <span class="arr">→</span></a>
+        <a class="btn btn--ghost" href="account.html">Мой профиль</a>
       </div>
       <div class="status"><span class="dot"></span><span id="status-text">Проверяем сервер…</span></div>
     </div>
 
-    <div class="portal-wrap" aria-hidden="true">
-      <div class="portal">
-        <div class="portal__inner">
-          <canvas id="scene"></canvas>
-          <img class="portal__logo" src="img/logo.png" alt="">
-        </div>
+    <div class="hero__art" aria-hidden="true">
+      <div class="frame">
+        <i class="frame__c tl"></i><i class="frame__c tr"></i><i class="frame__c bl"></i><i class="frame__c br"></i>
+        <div class="frame__hud frame__hud--t"><span>Сфинксляндия</span><span>Java + Bedrock · <b data-version>—</b></span></div>
+        <span class="frame__shadow"></span>
+        <img class="frame__logo" src="img/logo.png" alt="">
+        <div class="frame__hud frame__hud--b"><span><i class="dot"></i><b id="hud-online">—</b> онлайн</span><span>x 0 · y 64 · z 0</span></div>
       </div>
-      <i class="gem" style="left:4px;top:22%"></i>
-      <i class="gem" style="left:4px;top:62%"></i>
-      <i class="gem" style="right:4px;top:30%"></i>
-      <i class="gem" style="right:4px;top:72%"></i>
-      <i class="gem" style="left:46%;top:4px"></i>
-      <span class="cube" style="--s:54px;left:-34px;top:8%"></span>
-      <span class="cube" style="--s:30px;right:-22px;top:4%;animation-delay:-2s;--c:#c27a26"></span>
-      <span class="cube" style="--s:40px;right:-30px;bottom:14%;animation-delay:-4s;--c:#e3a83c"></span>
-      <span class="cube" style="--s:24px;left:-16px;bottom:22%;animation-delay:-1s;--c:#a8601c"></span>
     </div>
   </div>
-
-  <div class="hero__corner hero__corner--l caps"><img src="img/logo.png" alt=""><span>Пески<br>Сфинксляндии<br>с 2026</span></div>
-  <div class="hero__corner hero__corner--r caps">Строй · Объединяйся · Правь</div>
 </section>
 
 <!-- ================= ЦИФРЫ ================= -->
@@ -105,20 +90,39 @@
   </div>
 </div>
 
+<!-- ================= АВТОР ================= -->
+<section class="section" id="author">
+  <div class="wrap">
+    <div class="author reveal">
+      <div class="author__ava" aria-hidden="true"><img src="img/logo.png" alt=""></div>
+      <div>
+        <span class="head__label caps">Чей это сервер</span>
+        <h2 class="head__title" data-t="author.title"></h2>
+        <div class="author__text" data-t="author.text"></div>
+        <div class="tile__actions">
+          <a class="btn btn--primary" data-link="twitch">Смотреть на Twitch <span class="arr">→</span></a>
+          <a class="btn btn--ghost" data-link="youtube">YouTube</a>
+          <a class="btn btn--ghost" data-link="telegram">Telegram</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
 <!-- ================= О СЕРВЕРЕ ================= -->
-<section class="section" id="about">
+<section class="section section--alt" id="about">
   <div class="wrap">
     <div class="head reveal">
       <span class="head__label caps">О сервере</span>
       <h2 class="head__title">Больше, чем<br>просто выживание</h2>
-      <p class="head__sub">Сфинксляндия — выживание в мире песков и пирамид. Здесь нет готовых городов: всё, что ты увидишь, построили игроки.</p>
+      <p class="head__sub">Классическое выживание без лишнего. Здесь нет готовых городов: всё, что ты увидишь, построили зрители вместе.</p>
     </div>
     <div class="showcase" id="features"></div>
   </div>
 </section>
 
 <!-- ================= КАК НАЧАТЬ ================= -->
-<section class="section section--alt" id="start">
+<section class="section" id="start">
   <div class="wrap">
     <div class="head head-row reveal">
       <div>
@@ -153,7 +157,7 @@
 </section>
 
 <!-- ================= ОНЛАЙН ================= -->
-<section class="section" id="online">
+<section class="section section--alt" id="online">
   <div class="wrap">
     <div class="online">
       <div class="reveal">
@@ -171,7 +175,7 @@
 </section>
 
 <!-- ================= НОВОСТИ ================= -->
-<section class="section section--alt" id="news">
+<section class="section" id="news">
   <div class="wrap">
     <div class="head head-row reveal">
       <div>
@@ -185,7 +189,7 @@
 </section>
 
 <!-- ================= ПРОФИЛЬ ================= -->
-<section class="section" id="profile">
+<section class="section section--alt" id="profile">
   <div class="wrap">
     <div class="promo reveal">
       <div>
@@ -208,12 +212,12 @@
           <img class="pcard__ava" src="img/logo.png" alt="">
           <div>
             <div class="pcard__nick">ТвойНик</div>
-            <div class="pcard__meta"><span class="chip chip--rank" style="--c:#ffa21f">Фараон</span><span class="chip">Java</span></div>
+            <div class="pcard__meta"><span class="chip chip--rank" style="--c:#ffd84a">Сфинкс</span><span class="chip">Java</span></div>
           </div>
         </div>
-        <p class="pcard__bio">Строю пирамиду у Красного оазиса. Ищу клан для торговли — пиши в Discord.</p>
+        <p class="pcard__bio">Смотрю каждый стрим. Строю базу у реки на западе, ищу команду для фермы — пиши в Discord.</p>
         <div class="pcard__grid">
-          <div><b>Клан</b><span>Пески Ра</span></div>
+          <div><b>Клан</b><span>Северный</span></div>
           <div><b>С нами</b><span>с октября 2026</span></div>
           <div><b>Discord</b><span>tvoynik</span></div>
           <div><b>Статус</b><span><i class="dot on"></i> в игре</span></div>
@@ -224,7 +228,7 @@
 </section>
 
 <!-- ================= ПРАВИЛА ================= -->
-<section class="section section--alt" id="rules">
+<section class="section" id="rules">
   <div class="wrap">
     <div class="head reveal">
       <span class="head__label caps">Правила</span>
@@ -236,7 +240,7 @@
 </section>
 
 <!-- ================= ДОНАТ-БАННЕР ================= -->
-<section class="section">
+<section class="section section--alt">
   <div class="wrap">
     <div class="donate-banner reveal">
       <div>
@@ -293,7 +297,7 @@
 <section class="cta">
   <div class="wrap reveal">
     <h2>Чего ты<br><span class="grad-text">ждёшь?</span></h2>
-    <p>Скопируй IP и заходи — пески уже ждут.</p>
+    <p>Скопируй IP и заходи — тут уже свои.</p>
     <div class="btns">
       <button class="btn btn--primary" data-copy="java">IP Java</button>
       <button class="btn btn--ghost" data-copy="bedrock">IP Bedrock</button>

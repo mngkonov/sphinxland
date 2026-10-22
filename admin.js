@@ -45,8 +45,11 @@ const SECTIONS = [
     cards: [
       { title: "Заголовок", fields: [
         { path: "hero.badge", label: "Подпись над заголовком" },
-        { row: [{ path: "hero.line1", label: "Строка 1 (белая)" }, { path: "hero.line2", label: "Строка 2 (белая)" }, { path: "hero.accent", label: "Строка 3 (оранжевая)" }] },
+        { row: [{ path: "hero.line1", label: "Строка 1 (белая)" }, { path: "hero.line2", label: "Строка 2 (белая)" }, { path: "hero.accent", label: "Строка 3 (жёлтая)" }] },
         { path: "hero.text", label: "Описание", type: "textarea" } ] },
+      { title: "Блок «Чей это сервер»", fields: [
+        { path: "author.title", label: "Заголовок" },
+        { path: "author.text", label: "Текст", type: "textarea", rows: 6 } ] },
       { title: "Баннер доната", fields: [
         { path: "banner.label", label: "Надпись сверху" },
         { row: [{ path: "banner.title", label: "Заголовок" }, { path: "banner.accent", label: "Выделенное слово" }] },

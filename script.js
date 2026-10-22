@@ -35,7 +35,7 @@ if ($("footer")) {
     <div class="footer__grid">
       <div class="footer__brand">
         <img src="img/logo.png" alt="">
-        <p>Бесплатный Minecraft сервер для Java и Bedrock.<br>Строй, объединяйся, правь.</p>
+        <p>Minecraft-сервер стримера FatSphinx.<br>Место, где зрители встречаются и играют вместе.</p>
         <div class="footer__ip">
           <button class="btn btn--dark" data-copy="java">IP Java</button>
           <button class="btn btn--dark" data-copy="bedrock">IP Bedrock</button>
@@ -80,12 +80,13 @@ if (burger && nav) {
 if ($("features")) {
   $("features").innerHTML = (SITE.features || []).map((f, i) => {
     const img = safeUrl(f.image);
-    return `<article class="tile ${i === 0 ? "tile--big" : ""} reveal" ${img ? `style="--img:url('${esc(img)}')"` : ""}>
+    return `<article class="tile ${i === 0 ? "tile--big" : ""} ${img ? "has-img" : ""} reveal" ${img ? `style="--img:url('${esc(img)}')"` : ""}>
+      ${i === 0 && !img ? `<img class="tile__art" src="img/logo.png" alt="">` : ""}
       <span class="tile__label caps">${esc(f.label)}</span>
       <div>
         <h3>${esc(f.title)}</h3>
         <p>${fmt(f.text)}</p>
-        ${i === 0 ? `<div class="tile__actions"><a class="btn btn--light" href="#start">Начать</a><a class="btn btn--dark" data-link="discord">Найти клан</a></div>` : ""}
+        ${i === 0 ? `<div class="tile__actions"><a class="btn btn--primary" href="#start">Начать</a><a class="btn btn--ghost" data-link="discord">Найти команду</a></div>` : ""}
       </div>
     </article>`;
   }).join("");
@@ -229,8 +230,9 @@ async function loadStatus() {
   try {
     const d = await getStatus();
     const on = !!d.online, now = on ? (d.players?.online ?? 0) : 0, max = on ? (d.players?.max ?? 0) : 0;
-    $$(".dot").forEach(x => { x.classList.toggle("on", on); x.classList.toggle("off", !on); });
+    $$(".status .dot, .frame .dot").forEach(x => { x.classList.toggle("on", on); x.classList.toggle("off", !on); });
     if ($("status-text")) $("status-text").textContent = on ? `Онлайн · ${now} из ${max}` : "Сервер офлайн";
+    if ($("hud-online")) $("hud-online").textContent = on ? `${now}/${max}` : "офлайн";
     if ($("spec-online")) $("spec-online").textContent = now;
     if ($("spec-max")) $("spec-max").textContent = max || "—";
     if ($("online-big")) $("online-big").innerHTML = `${now}<small> / ${max || "—"}</small>`;
@@ -250,64 +252,64 @@ async function loadStatus() {
 }
 loadStatus(); setInterval(loadStatus, 60000);
 
-/* ---------- Пиксельная сцена в портале ---------- */
-(function scene() {
-  const cv = $("scene"); if (!cv) return;
-  const W = 100, H = 120; cv.width = W; cv.height = H;
-  const g = cv.getContext("2d");
-  let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
-  const stars = Array.from({ length: 46 }, () => [Math.floor(rnd() * W), Math.floor(rnd() * 55), rnd()]);
-  const P = (x, y, c, w = 1, h = 1) => { g.fillStyle = c; g.fillRect(x, y, w, h); };
-  const mix = (a, b, t) => { const p = s => [1,3,5].map(i => parseInt(s.slice(i, i + 2), 16)); const A = p(a), B = p(b);
-    return `rgb(${A.map((v, i) => Math.round(v + (B[i] - v) * t)).join(",")})`; };
-  function island(x, y, w, top) {
-    for (let i = 0; i < w; i++) P(x + i, y, top);
-    for (let i = 0; i < w; i++) P(x + i, y + 1, "#b8701c");
-    let row = 2, l = x, r = x + w;
-    while (r - l > 1) { for (let i = l; i < r; i++) P(i, y + row, (i + row) % 3 ? "#4a2a14" : "#3a1f0e"); l += 1 + (row % 2); r -= 1 + ((row + 1) % 2); row++; }
-  }
-  function pyramid(cx, base, h, lit, shade) {
-    for (let y = 0; y < h; y++) for (let x = -y; x <= y; x++) {
-      const c = x < 0 ? shade : lit; P(cx + x, base - h + y, (base - h + y) % 3 === 0 ? mix(c, "#000000", .15) : c);
-    }
+/* ---------- Hero: сетка блоков и пиксельный горизонт ---------- */
+(function blocks() {
+  const cv = $("blocks"); if (!cv) return;
+  const g = cv.getContext("2d"), C = 32;
+  const still = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  let W, H, cols, rows, ground = [], lit = [];
+  let seed = 11; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  function resize() {
+    W = cv.width = cv.offsetWidth; H = cv.height = cv.offsetHeight;
+    cols = Math.ceil(W / C) + 1; rows = Math.ceil(H / C);
+    seed = 11;
+    /* Рельеф: высота каждой колонки в блоках (1–4), плюс редкая «руда» */
+    ground = Array.from({ length: cols }, (_, x) => {
+      const h = 2 + Math.round(Math.sin(x / 5) * 1.1 + Math.sin(x / 2.3) * .6);
+      return { h: Math.max(1, Math.min(4, h)), ore: Array.from({ length: 4 }, () => rnd() < .1) };
+    });
   }
   function draw(t) {
-    for (let y = 0; y < 90; y++) { const k = y / 90; P(0, y, k < .5 ? mix("#0b0612", "#3a1226", k * 2) : mix("#3a1226", "#ff7a1a", (k - .5) * 2), W, 1); }
-    stars.forEach(([x, y, p]) => { g.globalAlpha = .35 + .65 * Math.abs(Math.sin(t / 900 + p * 10)); P(x, y, "#ffe9b8"); });
-    g.globalAlpha = 1;
-    for (let r = 26; r > 0; r -= 2) { g.globalAlpha = .05; g.beginPath(); g.arc(50, 32, r, 0, 7); g.fillStyle = "#ffc83a"; g.fill(); }
-    g.globalAlpha = 1;
-    island(4, 50, 14, "#e8a33a"); island(80, 40, 12, "#e8a33a"); island(66, 66, 8, "#d99030");
-    for (let x = 0; x < W; x++) { const h = 80 + Math.round(Math.sin(x / 9) * 3 + Math.sin(x / 4) * 1.2); P(x, h, "#5a2414", 1, H - h); }
-    pyramid(28, 96, 22, "#e08a2a", "#8a3e12");
-    pyramid(70, 98, 30, "#f29a2e", "#9a4612");
-    pyramid(49, 100, 13, "#d47a24", "#7a3410");
-    for (let x = 0; x < W; x++) {
-      const h = 98 + Math.round(Math.sin(x / 13 + 1) * 3 + Math.sin(x / 5) * 1);
-      for (let y = h; y < H; y++) P(x, y, (x * 7 + y * 13) % 9 === 0 ? "#c8741a" : y === h ? "#ffb444" : "#e8952a");
-    }
-  }
-  let last = 0;
-  (function loop(t) { if (t - last > 120) { draw(t); last = t; } requestAnimationFrame(loop); })(0);
-})();
-
-/* ---------- Искры в hero ---------- */
-(function embers() {
-  const cv = $("embers"); if (!cv) return;
-  const g = cv.getContext("2d"); let W, H; const parts = [];
-  const resize = () => { W = cv.width = cv.offsetWidth; H = cv.height = cv.offsetHeight; };
-  resize(); addEventListener("resize", resize);
-  for (let i = 0; i < 40; i++) parts.push({ x: Math.random(), y: Math.random(), s: 2 + Math.random() * 3, v: .0004 + Math.random() * .0009, o: Math.random() });
-  (function loop() {
     g.clearRect(0, 0, W, H);
-    parts.forEach(p => {
-      p.y -= p.v; if (p.y < -.02) { p.y = 1.02; p.x = Math.random(); }
-      g.globalAlpha = .25 + .5 * Math.abs(Math.sin(p.o += .01));
-      g.fillStyle = p.s > 3.5 ? "#ffc83a" : "#ff7a1a";
-      g.fillRect(Math.round(p.x * W), Math.round(p.y * H), p.s, p.s);
+    /* Линии сетки, плавно исчезающие кверху */
+    for (let y = 0; y < rows; y++) {
+      g.fillStyle = `rgba(255,230,180,${.05 * Math.min(1, y / rows * 1.6)})`;
+      g.fillRect(0, y * C, W, 1);
+    }
+    for (let x = 0; x < cols; x++) {
+      const grad = g.createLinearGradient(0, 0, 0, H);
+      grad.addColorStop(0, "rgba(255,230,180,0)"); grad.addColorStop(1, "rgba(255,230,180,.05)");
+      g.fillStyle = grad; g.fillRect(x * C, 0, 1, H);
+    }
+    /* Вспыхивающие блоки */
+    lit.forEach(b => {
+      const a = Math.sin(Math.min(1, (t - b.t0) / b.d) * Math.PI);
+      g.fillStyle = `rgba(255,201,42,${.09 * a})`; g.fillRect(b.x * C + 1, b.y * C + 1, C - 1, C - 1);
     });
-    requestAnimationFrame(loop);
-  })();
+    /* Горизонт из блоков */
+    ground.forEach((col, x) => {
+      for (let k = 0; k < col.h; k++) {
+        const y = H - (k + 1) * C, top = k === col.h - 1;
+        g.fillStyle = top ? "#241c0f" : (x + k) % 2 ? "#17130b" : "#1a150c";
+        g.fillRect(x * C, y, C, C);
+        if (top) { g.fillStyle = "rgba(255,201,42,.55)"; g.fillRect(x * C, y, C, 3); }
+        if (col.ore[k] && !top) {
+          g.fillStyle = k % 2 ? "#c8601a" : "#f7a51a";
+          g.fillRect(x * C + 8, y + 10, 6, 6); g.fillRect(x * C + 18, y + 18, 6, 6);
+        }
+      }
+    });
+  }
+  function tick(t) {
+    lit = lit.filter(b => t - b.t0 < b.d);
+    if (lit.length < 14 && Math.random() < .2)
+      lit.push({ x: Math.floor(Math.random() * cols), y: Math.floor(Math.random() * (rows - 5)), t0: t, d: 1800 + Math.random() * 2200 });
+    draw(t);
+  }
+  resize(); addEventListener("resize", () => { resize(); draw(performance.now()); });
+  if (still) { draw(0); return; }
+  let last = 0;
+  (function loop(t) { if (t - last > 100) { tick(t); last = t; } requestAnimationFrame(loop); })(0);
 })();
 
 /* ---------- Страница доната ---------- */
@@ -328,7 +330,7 @@ loadStatus(); setInterval(loadStatus, 60000);
     const i = Math.max(0, tiers.findIndex(t => t.id === id)), t = tiers[i];
     $$(".tier").forEach(b => b.classList.toggle("active", b.dataset.id === t.id));
     const stage = $("stage");
-    stage.style.setProperty("--glow", rgba(t.color, .42));
+    stage.style.setProperty("--glow", rgba(t.color, .16));
     stage.style.setProperty("--glow-solid", t.color);
     $("rank-name").textContent = t.name; $("rank-name").style.color = t.color;
     $("rank-sub").textContent = t.sub || "";
