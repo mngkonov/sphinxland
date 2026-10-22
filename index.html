@@ -1,0 +1,272 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Сфинксляндия — Minecraft сервер</title>
+  <meta name="description" content="Сфинксляндия — Minecraft сервер для Java и Bedrock. Выживание, кланы, города и своя легенда.">
+  <meta name="theme-color" content="#07060a">
+  <meta property="og:title" content="Сфинксляндия — Minecraft сервер">
+  <meta property="og:image" content="img/logo.png">
+  <link rel="icon" href="img/favicon.png" type="image/png">
+  <link rel="apple-touch-icon" href="img/apple-touch-icon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Pixelify+Sans:wght@500&family=Unbounded:wght@500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- ================= ШАПКА ================= -->
+<header class="header">
+  <div class="wrap">
+    <a class="logo" href="index.html"><img src="img/logo.png" alt=""><span>Сфинксляндия</span></a>
+    <nav class="nav" id="nav">
+      <a href="#about">О сервере</a>
+      <a href="#start">Как начать</a>
+      <a href="#online">Онлайн</a>
+      <a href="rules.html">Правила</a>
+      <a href="donate.html">Донат</a>
+      <a href="news.html">Новости</a>
+      <a href="#community">Сообщество</a>
+    </nav>
+    <div class="header__right">
+      <a class="btn btn--ghost" href="#play">Играть</a>
+      <button class="burger" id="burger" aria-label="Меню"><span></span><span></span><span></span></button>
+    </div>
+  </div>
+</header>
+
+<!-- ================= HERO ================= -->
+<section class="hero" id="play">
+  <div class="hero__bg"></div>
+  <canvas class="embers" id="embers"></canvas>
+
+  <div class="wrap">
+    <div>
+      <div class="hero__badge caps">
+        <img src="img/logo.png" alt="">
+        <span>Java &amp; Bedrock · <span data-version></span><br><span data-t="hero.badge"></span></span>
+      </div>
+      <h1 class="hero__title">
+        <span class="l1" data-t="hero.line1"></span>
+        <span class="l1" data-t="hero.line2"></span>
+        <span class="l2" data-t="hero.accent"></span>
+      </h1>
+      <p class="hero__text" data-t="hero.text"></p>
+
+      <div class="ip-pill">
+        <div class="ip-pill__tabs">
+          <button class="ip-tab active" data-edition="java">Java</button>
+          <button class="ip-tab" data-edition="bedrock">Bedrock</button>
+        </div>
+        <div class="ip-value" id="ip-value">—</div>
+        <button class="ip-copy" data-copy="current">Копировать</button>
+      </div>
+      <p class="ip-hint" id="ip-hint"></p>
+      <div class="hero__actions">
+        <a class="btn btn--ghost" href="#start">Войти в мир <span class="arr">→</span></a>
+        <a class="btn btn--dark" href="donate.html">Донат</a>
+      </div>
+      <div class="status"><span class="dot"></span><span id="status-text">Проверяем сервер…</span></div>
+    </div>
+
+    <div class="portal-wrap" aria-hidden="true">
+      <div class="portal">
+        <div class="portal__inner">
+          <canvas id="scene"></canvas>
+          <img class="portal__logo" src="img/logo.png" alt="">
+        </div>
+      </div>
+      <i class="gem" style="left:4px;top:22%"></i>
+      <i class="gem" style="left:4px;top:62%"></i>
+      <i class="gem" style="right:4px;top:30%"></i>
+      <i class="gem" style="right:4px;top:72%"></i>
+      <i class="gem" style="left:46%;top:4px"></i>
+      <span class="cube" style="--s:54px;left:-34px;top:8%"></span>
+      <span class="cube" style="--s:30px;right:-22px;top:4%;animation-delay:-2s;--c:#c27a26"></span>
+      <span class="cube" style="--s:40px;right:-30px;bottom:14%;animation-delay:-4s;--c:#e3a83c"></span>
+      <span class="cube" style="--s:24px;left:-16px;bottom:22%;animation-delay:-1s;--c:#a8601c"></span>
+    </div>
+  </div>
+
+  <div class="hero__corner hero__corner--l caps"><img src="img/logo.png" alt=""><span>Пески<br>Сфинксляндии<br>с 2026</span></div>
+  <div class="hero__corner hero__corner--r caps">Строй · Объединяйся · Правь</div>
+</section>
+
+<!-- ================= ЦИФРЫ ================= -->
+<div class="wrap">
+  <div class="specs reveal">
+    <div class="spec"><div class="spec__num" id="spec-online">—</div><div class="spec__label caps">онлайн сейчас</div></div>
+    <div class="spec"><div class="spec__num" id="spec-max">—</div><div class="spec__label caps">слотов</div></div>
+    <div class="spec"><div class="spec__num" data-version>—</div><div class="spec__label caps">версия</div></div>
+    <div class="spec"><div class="spec__num">2<small>платформы</small></div><div class="spec__label caps">Java + Bedrock</div></div>
+  </div>
+</div>
+
+<!-- ================= О СЕРВЕРЕ ================= -->
+<section class="section" id="about">
+  <div class="wrap">
+    <div class="head reveal">
+      <span class="head__label caps">О сервере</span>
+      <h2 class="head__title">Больше, чем<br>просто выживание</h2>
+    </div>
+
+    <div class="showcase" id="features"></div>
+  </div>
+</section>
+
+<!-- ================= НОВОСТИ ================= -->
+<section class="section" id="news" style="padding-top:0">
+  <div class="wrap">
+    <div class="head head-row reveal">
+      <div>
+        <span class="head__label caps">Новости</span>
+        <h2 class="head__title">Что нового</h2>
+      </div>
+      <a class="btn btn--dark" href="news.html">Все новости <span class="arr">→</span></a>
+    </div>
+    <div class="news-grid" id="news-list"></div>
+  </div>
+</section>
+
+<!-- ================= КАК НАЧАТЬ ================= -->
+<section class="section section--alt" id="start">
+  <div class="wrap">
+    <div class="head reveal">
+      <span class="head__label caps">Старт</span>
+      <h2 class="head__title">Три шага до игры</h2>
+    </div>
+    <div class="steps reveal">
+      <div class="step">
+        <div class="step__num">01</div>
+        <h3>Скопируй IP</h3>
+        <p>Выбери Java или Bedrock и нажми «Копировать» в начале страницы.</p>
+      </div>
+      <div class="step">
+        <div class="step__num">02</div>
+        <h3>Прочитай правила</h3>
+        <p>Пара минут — и игра честная для всех. <a href="rules.html">Открыть правила →</a></p>
+      </div>
+      <div class="step">
+        <div class="step__num">03</div>
+        <h3>Заходи в игру</h3>
+        <p>Добавь сервер в список и вступай в наш <a data-link="discord">Discord</a>.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= ОНЛАЙН ================= -->
+<section class="section" id="online">
+  <div class="wrap">
+    <div class="online">
+      <div class="reveal">
+        <span class="head__label caps">Мониторинг · обновляется раз в минуту</span>
+        <div class="online__big" id="online-big">—<small> / —</small></div>
+        <p class="online__motd" id="online-motd">Загружаем…</p>
+        <button class="btn btn--primary" data-copy="java">Скопировать IP</button>
+      </div>
+      <div class="reveal">
+        <div class="bar"><div class="bar__fill" id="bar-fill"></div></div>
+        <div class="players" id="players"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= ПРАВИЛА ================= -->
+<section class="section section--alt" id="rules">
+  <div class="wrap">
+    <div class="head reveal">
+      <span class="head__label caps">Правила</span>
+      <h2 class="head__title">Главное — коротко</h2>
+    </div>
+    <div class="rules-grid reveal" id="rules-short"></div>
+    <a class="btn btn--dark" href="rules.html">Все правила <span class="arr">→</span></a>
+  </div>
+</section>
+
+<!-- ================= ДОНАТ-БАННЕР ================= -->
+<section class="section">
+  <div class="wrap">
+    <div class="donate-banner reveal">
+      <div>
+        <span class="head__label caps" data-t="banner.label"></span>
+        <h2 class="head__title"><span data-t="banner.title"></span> <span class="grad-text" data-t="banner.accent"></span></h2>
+        <p class="head__sub" data-t="banner.text"></p>
+        <div class="tile__actions"><a class="btn btn--primary" href="donate.html">Выбрать привилегию <span class="arr">→</span></a></div>
+      </div>
+      <img src="img/logo.png" alt="">
+    </div>
+  </div>
+</section>
+
+<!-- ================= FAQ ================= -->
+<section class="section section--alt" id="faq">
+  <div class="wrap">
+    <div class="head head--center reveal">
+      <span class="head__label caps">FAQ</span>
+      <h2 class="head__title">Частые вопросы</h2>
+    </div>
+    <div class="faq reveal" id="faq-list"></div>
+  </div>
+</section>
+
+<!-- ================= СООБЩЕСТВО ================= -->
+<section class="section" id="community">
+  <div class="wrap">
+    <div class="head reveal">
+      <span class="head__label caps">Комьюнити</span>
+      <h2 class="head__title">Присоединяйся</h2>
+    </div>
+    <div class="socials reveal">
+      <a class="social" data-link="discord"><span class="social__name">Discord</span><span class="social__desc">Общение, тиммейты и помощь</span><span class="social__go caps">Перейти →</span></a>
+      <a class="social" data-link="telegram"><span class="social__name">Telegram</span><span class="social__desc">Новости и анонсы</span><span class="social__go caps">Перейти →</span></a>
+      <a class="social" data-link="youtube"><span class="social__name">YouTube</span><span class="social__desc">Трейлеры и обзоры построек</span><span class="social__go caps">Перейти →</span></a>
+      <a class="social" data-link="twitch"><span class="social__name">Twitch</span><span class="social__desc">Стримы с сервера</span><span class="social__go caps">Перейти →</span></a>
+    </div>
+  </div>
+</section>
+
+<!-- ================= CTA ================= -->
+<section class="cta">
+  <div class="wrap reveal">
+    <h2>Чего ты<br><span class="grad-text">ждёшь?</span></h2>
+    <p>Скопируй IP и заходи — пески уже ждут.</p>
+    <div class="btns">
+      <button class="btn btn--primary" data-copy="java">IP Java</button>
+      <button class="btn btn--ghost" data-copy="bedrock">IP Bedrock</button>
+    </div>
+  </div>
+</section>
+
+<!-- ================= ПОДВАЛ ================= -->
+<footer class="footer">
+  <div class="wrap">
+    <div class="footer__grid">
+      <div class="footer__brand">
+        <img src="img/logo.png" alt="">
+        <p>Minecraft сервер для Java и Bedrock.<br>Строй, объединяйся, правь.</p>
+      </div>
+      <div><h4 class="caps">Сервер</h4><ul><li><a href="#about">О сервере</a></li><li><a href="#online">Онлайн</a></li><li><a href="#faq">FAQ</a></li><li><a href="news.html">Новости</a></li></ul></div>
+      <div><h4 class="caps">Информация</h4><ul><li><a href="rules.html">Правила</a></li><li><a href="donate.html">Донат</a></li></ul></div>
+      <div><h4 class="caps">Сообщество</h4><ul><li><a data-link="discord">Discord</a></li><li><a data-link="telegram">Telegram</a></li><li><a data-link="youtube">YouTube</a></li><li><a data-link="twitch">Twitch</a></li></ul></div>
+    </div>
+    <div class="footer__bottom">
+      <span>© 2026 Сфинксляндия</span>
+      <span>Не является официальным продуктом Minecraft. Не одобрено и не связано с Mojang или Microsoft.</span>
+    </div>
+  </div>
+</footer>
+
+<div class="toast" id="toast"></div>
+<script>
+  /* Загружаем свежий контент (без кэша) и затем скрипт сайта */
+  (function () { var v = Date.now(), c = document.createElement("script");
+    c.src = "data/content.js?v=" + v;
+    c.onload = c.onerror = function () { var m = document.createElement("script"); m.src = "script.js?v=" + v; document.body.appendChild(m); };
+    document.body.appendChild(c); })();
+</script>
+</body>
+</html>

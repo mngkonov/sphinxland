@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Админка — Сфинксляндия</title>
+  <meta name="theme-color" content="#07060a">
+  <link rel="icon" href="img/favicon.png" type="image/png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Unbounded:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="admin.css">
+</head>
+<body class="admin">
+
+<!-- ============ ВХОД ============ -->
+<section class="login" id="login">
+  <form class="login__card" id="login-form" autocomplete="off">
+    <img class="login__logo" src="img/logo.png" alt="">
+    <h1>Админка</h1>
+    <p class="login__sub">Сфинксляндия · управление сайтом</p>
+
+    <label class="field">
+      <span class="field__label">GitHub-токен</span>
+      <input class="input" id="f-token" type="password" placeholder="ghp_… или github_pat_…" required>
+    </label>
+    <div class="grid-2">
+      <label class="field">
+        <span class="field__label">Репозиторий</span>
+        <input class="input" id="f-repo" placeholder="ник/sphinxland" required>
+      </label>
+      <label class="field">
+        <span class="field__label">Ветка</span>
+        <input class="input" id="f-branch" value="main" required>
+      </label>
+    </div>
+    <button class="btn btn--primary" type="submit">Войти <span class="arr">→</span></button>
+    <p class="login__err" id="login-err"></p>
+
+    <details class="help">
+      <summary>Где взять токен?</summary>
+      <ol>
+        <li>Открой <a href="https://github.com/settings/tokens/new?scopes=public_repo&description=Sphinxland%20admin" target="_blank" rel="noopener">github.com/settings/tokens/new</a> (ссылка сразу выберет нужные права).</li>
+        <li>В «Note» оставь <code>Sphinxland admin</code>, в «Expiration» выбери срок.</li>
+        <li>Проверь, что отмечена галочка <code>public_repo</code>, больше ничего не нужно.</li>
+        <li>Нажми «Generate token» и скопируй токен — он показывается один раз.</li>
+      </ol>
+      <p style="margin-top:12px">Токен хранится только в этом браузере. Никому его не отправляй.</p>
+    </details>
+  </form>
+</section>
+
+<!-- ============ ПРИЛОЖЕНИЕ ============ -->
+<div class="app hidden" id="app">
+  <aside class="side" id="side">
+    <a class="logo" href="index.html" target="_blank"><img src="img/logo.png" alt=""><span>Админка</span></a>
+    <nav class="side__nav" id="side-nav"></nav>
+    <div class="side__foot">
+      <div class="user"><img id="u-avatar" alt=""><span id="u-login"></span></div>
+      <button class="linkbtn" id="logout">Выйти</button>
+    </div>
+  </aside>
+
+  <main class="main">
+    <header class="topbar">
+      <div style="display:flex;align-items:center;gap:12px;min-width:0">
+        <button class="icon-btn m-menu" id="m-menu" aria-label="Меню">☰</button>
+        <h1 id="sec-title">—</h1>
+      </div>
+      <div class="topbar__actions">
+        <span class="dirty" id="dirty">Не опубликовано</span>
+        <a class="btn btn--dark" href="index.html" target="_blank">Открыть сайт</a>
+        <button class="btn btn--primary" id="publish">Опубликовать</button>
+      </div>
+    </header>
+    <div class="content" id="content"></div>
+  </main>
+</div>
+
+<div class="busy hidden" id="busy"><div class="busy__box"><span class="spinner"></span><span id="busy-text">Загрузка…</span></div></div>
+<div class="toast" id="toast"></div>
+<script src="admin.js"></script>
+</body>
+</html>

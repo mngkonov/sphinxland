@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Донат — Сфинксляндия</title>
+  <meta name="description" content="Привилегии сервера Сфинксляндия. Поддержи проект и получи косметические бонусы.">
+  <meta name="theme-color" content="#07060a">
+  <link rel="icon" href="img/favicon.png" type="image/png">
+  <link rel="apple-touch-icon" href="img/apple-touch-icon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Pixelify+Sans:wght@500&family=Unbounded:wght@500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="header">
+  <div class="wrap">
+    <a class="logo" href="index.html"><img src="img/logo.png" alt=""><span>Сфинксляндия</span></a>
+    <nav class="nav" id="nav">
+      <a href="index.html#about">О сервере</a>
+      <a href="index.html#start">Как начать</a>
+      <a href="index.html#online">Онлайн</a>
+      <a href="rules.html">Правила</a>
+      <a href="donate.html" class="active">Донат</a>
+      <a href="news.html">Новости</a>
+      <a href="index.html#community">Сообщество</a>
+    </nav>
+    <div class="header__right">
+      <a class="btn btn--ghost" href="index.html#play">Играть</a>
+      <button class="burger" id="burger" aria-label="Меню"><span></span><span></span><span></span></button>
+    </div>
+  </div>
+</header>
+
+<!-- Привилегии, цены и ссылки на оплату редактируются в админке (admin.html) -->
+<main class="donate">
+  <section class="donate__stage" id="stage">
+    <img class="donate__logo" src="img/logo.png" alt="">
+    <div class="donate__rank" id="rank-name">—</div>
+    <div class="donate__rank-sub caps" id="rank-sub"></div>
+    <div class="donate__specs">
+      <div><b id="spec-price">—</b><span class="caps">цена</span></div>
+      <div><b id="spec-perks">—</b><span class="caps">бонусов</span></div>
+      <div><b id="spec-level">—</b><span class="caps">уровень</span></div>
+    </div>
+  </section>
+
+  <section class="donate__panel">
+    <span class="head__label caps">Донат</span>
+    <h1>Выбери привилегию</h1>
+    <p>Каждая следующая включает бонусы предыдущих. Все привилегии косметические и не дают преимущества в игре.</p>
+
+    <div class="tiers" id="tiers"></div>
+
+    <div class="perks-title caps">Что входит</div>
+    <ul class="perks" id="perks"></ul>
+
+    <div class="total"><span class="caps muted">Итого</span><b id="total">—</b></div>
+    <a class="btn btn--primary btn--block" id="buy"><span class="lbl">Купить</span> <span class="arr">→</span></a>
+    <p class="note">После оплаты привилегия выдаётся автоматически на твой ник. Если что-то пошло не так — напиши администрации в <a data-link="discord" style="color:var(--yellow)">Discord</a>. Нажимая «Купить», ты соглашаешься с <a href="rules.html" style="color:var(--yellow)">правилами сервера</a>.</p>
+
+    <div class="support-box">
+      <h3>Просто поддержать</h3>
+      <p>Хочешь помочь серверу без привилегии? Любая сумма идёт на хостинг и новые обновления.</p>
+      <a class="btn btn--ghost" id="support"><span class="lbl">Поддержать</span> <span class="arr">→</span></a>
+    </div>
+  </section>
+</main>
+
+<footer class="footer">
+  <div class="wrap">
+    <div class="footer__bottom" style="border-top:0;padding-top:0">
+      <span>© 2026 Сфинксляндия</span>
+      <span>Не является официальным продуктом Minecraft. Не одобрено и не связано с Mojang или Microsoft.</span>
+    </div>
+  </div>
+</footer>
+
+<div class="toast" id="toast"></div>
+<script>
+  /* Загружаем свежий контент (без кэша) и затем скрипт сайта */
+  (function () { var v = Date.now(), c = document.createElement("script");
+    c.src = "data/content.js?v=" + v;
+    c.onload = c.onerror = function () { var m = document.createElement("script"); m.src = "script.js?v=" + v; document.body.appendChild(m); };
+    document.body.appendChild(c); })();
+</script>
+</body>
+</html>
