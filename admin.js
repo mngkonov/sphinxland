@@ -38,7 +38,7 @@ const SECTIONS = [
         { row: [{ path: "links.discord", label: "Discord", type: "url", ph: "https://discord.gg/…" }, { path: "links.telegram", label: "Telegram", type: "url", ph: "https://t.me/…" }] },
         { row: [{ path: "links.youtube", label: "YouTube", type: "url", ph: "https://youtube.com/@…" }, { path: "links.twitch", label: "Twitch", type: "url", ph: "https://twitch.tv/…" }] } ] },
       { title: "Профили игроков (Supabase)", fields: [
-        { path: "auth.supabaseUrl", label: "Project URL", type: "url", ph: "https://xxxx.supabase.co", hint: "Supabase → Project Settings → API. Пока поле пустое, на сайте вместо регистрации показывается «Скоро откроется»." },
+        { path: "auth.supabaseUrl", label: "Project URL", type: "url", ph: "https://xxxx.supabase.co", hint: "Supabase → Project Settings → API. Только адрес вида https://xxxx.supabase.co, без /rest/v1 в конце. Пока поле пустое, на сайте вместо регистрации показывается «Скоро откроется»." },
         { path: "auth.supabaseKey", label: "Публичный ключ (anon / publishable)", ph: "eyJ… или sb_publishable_…", hint: "Только публичный ключ! Секретный (service_role / secret) сюда вставлять нельзя — он даёт полный доступ к базе." } ] },
     ] },
   { id: "hero", title: "Главный экран", intro: "Большой заголовок в начале сайта и баннер доната на главной.",

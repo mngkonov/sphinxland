@@ -27,7 +27,9 @@
     return;
   }
 
-  const sb = window.supabase.createClient(A.supabaseUrl, A.supabaseKey);
+  /* Адрес проекта без хвостов вроде /rest/v1/ — их часто копируют вместе с URL */
+  const sbUrl = String(A.supabaseUrl).trim().replace(/\/(rest|auth)\/v1.*$/, "").replace(/\/+$/, "");
+  const sb = window.supabase.createClient(sbUrl, String(A.supabaseKey).trim());
 
   /* ---------- Общие помощники ---------- */
   const NICK_RE = /^[A-Za-z0-9_](?:[A-Za-z0-9_ ]{1,14})[A-Za-z0-9_]$/;

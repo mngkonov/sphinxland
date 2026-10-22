@@ -12,7 +12,7 @@ window.SITE = {
     "twitch": ""
   },
   "auth": {
-    "supabaseUrl": "https://pkgczzfhssfdjyunadmy.supabase.co/rest/v1/",
+    "supabaseUrl": "https://pkgczzfhssfdjyunadmy.supabase.co",
     "supabaseKey": "sb_publishable_TMuQH1g03TjvRuK_MHUEXw_XrfpShD9"
   },
   "hero": {
