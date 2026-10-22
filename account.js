@@ -35,7 +35,9 @@
 
   /* ---------- Общие помощники ---------- */
   const NICK_RE = /^[A-Za-z0-9_](?:[A-Za-z0-9_ ]{1,14})[A-Za-z0-9_]$/;
-  const CLAN_EMBED = "clans(id,name,tag,flag)";
+  /* У профиля клан свой (clan_id), но кланы связаны с профилями ещё и через заявки — указываем связь явно */
+  const CLAN_EMBED = "clans:clans!profiles_clan_id_fkey(id,name,tag,flag)";
+  const REQ_CLAN_EMBED = "clans(id,name,tag,flag)";
   const PUBLIC_COLS = `nickname,platform,bio,discord,rank,verified,created_at,stats,last_seen,clan_role,${CLAN_EMBED}`;
   const ROLE_NAMES = { owner: "Владелец", officer: "Офицер", member: "Участник" };
 
@@ -87,13 +89,13 @@
   /* Свой профиль вместе с кланом. Если кланы ещё не подключены в базе — без клана */
   async function loadMe(uid) {
     const r = await sb.from("profiles").select(`*,${CLAN_EMBED}`).eq("id", uid).maybeSingle();
-    if (r.error && /relationship|schema cache|clan/i.test(r.error.message)) return sb.from("profiles").select("*").eq("id", uid).maybeSingle();
+    if (r.error && /Could not find|does not exist/i.test(r.error.message)) return sb.from("profiles").select("*").eq("id", uid).maybeSingle();
     return r;
   }
   /* Запрос профилей с кланом; пока кланы не подключены в базе — без них */
   async function withFallback(mk) {
     const r = await mk(PUBLIC_COLS);
-    if (r.error && /relationship|schema cache|clan/i.test(r.error.message)) return mk("nickname,platform,bio,discord,rank,verified,created_at,stats,last_seen");
+    if (r.error && /Could not find|does not exist/i.test(r.error.message)) return mk("nickname,platform,bio,discord,rank,verified,created_at,stats,last_seen");
     return r;
   }
   async function currentUser() {
@@ -360,7 +362,7 @@
       $("logout").addEventListener("click", logout);
       /* Мои заявки в кланы (если я пока не в клане) */
       if (!p.clans && $("my-requests")) {
-        const { data: reqs } = await sb.from("clan_requests").select(`clan_id,created_at,${CLAN_EMBED}`).eq("user_id", user.id);
+        const { data: reqs } = await sb.from("clan_requests").select(`clan_id,created_at,${REQ_CLAN_EMBED}`).eq("user_id", user.id);
         if (reqs && reqs.length) {
           $("my-requests").innerHTML = `<div class="field__label" style="margin-top:16px">Мои заявки</div>` + reqs.map(r => `
             <div class="clan-row clan-row--req">${flagSvg(r.clans?.flag, "flag--sm")}
