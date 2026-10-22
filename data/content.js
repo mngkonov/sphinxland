@@ -12,8 +12,8 @@ window.SITE = {
     "twitch": ""
   },
   "auth": {
-    "supabaseUrl": "",
-    "supabaseKey": ""
+    "supabaseUrl": "https://pkgczzfhssfdjyunadmy.supabase.co/rest/v1/",
+    "supabaseKey": "sb_publishable_TMuQH1g03TjvRuK_MHUEXw_XrfpShD9"
   },
   "hero": {
     "badge": "Сервер, где правишь ты",
