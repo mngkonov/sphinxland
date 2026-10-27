@@ -20,7 +20,7 @@
       <h1 class="head__title">Скоро откроется</h1>
       <p class="head__sub">${accRoot
         ? "Скоро здесь можно будет войти по нику и паролю с сервера и увидеть свой профиль: скин, клан, статистику и статус в игре."
-        : clRoot ? "Здесь можно будет создать свой клан с флагом и тегом или вступить в чужой."
+        : clRoot ? "Здесь появятся кланы сервера — с флагами, участниками и статистикой из игры."
         : "Здесь появится список игроков с профилями, кланами и привилегиями."}</p>
       <div class="tile__actions" style="justify-content:center"><a class="btn btn--primary" href="guide.html">Как начать играть <span class="arr">→</span></a><a class="btn btn--dark" href="index.html">На главную</a></div>
     </div>`;
@@ -34,15 +34,14 @@
   /* ---------- Общие помощники ---------- */
   const NICK_RE = /^[.*]?[A-Za-z0-9_.](?:[A-Za-z0-9_. ]{1,14})[A-Za-z0-9_.]$/;
   /* У профиля клан свой (clan_id), но кланы связаны с профилями ещё и через заявки — указываем связь явно */
-  const CLAN_EMBED = "clans:clans!profiles_clan_id_fkey(id,name,tag,flag)";
-  const REQ_CLAN_EMBED = "clans(id,name,tag,flag)";
+  const CLAN_EMBED = "clans:clans!profiles_clan_id_fkey(id,name,tag,flag,game)";
   const PUBLIC_COLS = `nickname,platform,bio,discord,rank,verified,created_at,stats,last_seen,skin,online,clan_role,${CLAN_EMBED}`;
   /* Настоящий скин (из SkinsRestorer через плагин SiteSync) по хешу текстуры; иначе — по нику */
   const SKIN_RE = /^[0-9a-f]{20,80}$/;
   const ava = (p, size) => SKIN_RE.test(p.skin || "") ? `https://mc-heads.net/avatar/${p.skin}/${size}` : head(p.nickname, size);
   const bodyImg = p => `https://mc-heads.net/body/${SKIN_RE.test(p.skin || "") ? p.skin : encodeURIComponent(p.nickname)}/180`;
   const isOn = (p, online) => !!p.online || online.has(p.nickname.toLowerCase());
-  const ROLE_NAMES = { owner: "Владелец", officer: "Офицер", member: "Участник" };
+  const ROLE_NAMES = { owner: "Лидер", officer: "Модератор", member: "Участник" }; /* как в ApexClan */
 
   /* ---------- Пиксельный флаг клана: 8×12 клеток, цвета — 16 красителей Minecraft ---------- */
   const FW = 8, FH = 12;
@@ -63,7 +62,13 @@
     return `<svg class="flag ${cls}" viewBox="0 0 ${FW} ${FH}" shape-rendering="crispEdges" aria-hidden="true">${r}</svg>`;
   }
   const clanUrl = c => `clans.html?tag=${encodeURIComponent(c.tag)}`;
-  const clanChip = c => c ? `<a class="chip chip--clan" href="${clanUrl(c)}">${flagSvg(c.flag, "flag--xs")}${esc(c.tag)}</a>` : "";
+  /* Название клана цветом тега из игры: один цвет или градиент (как /clan color в ApexClan) */
+  const clanStyle = c => {
+    const cs = ((c && c.game && c.game.colors) || []).filter(x => /^#[0-9a-f]{6}$/i.test(x));
+    return cs.length > 1 ? `background:linear-gradient(90deg,${cs.join(",")});-webkit-background-clip:text;background-clip:text;color:transparent`
+      : cs.length ? `color:${cs[0]}` : "";
+  };
+  const clanName = c => `<span class="clan-name" style="${clanStyle(c)}">${esc(c.name)}</span>`;
   const platformName = p => p === "bedrock" ? "Bedrock" : "Java";
   const findTier = r => r ? tiers.find(t => [t.id, t.name].some(x => String(x || "").toLowerCase() === String(r).toLowerCase())) : null;
   const rankChip = r => { const t = findTier(r); return r ? `<span class="chip chip--rank" style="--c:${esc(t ? t.color : "#ffc83a")}">${esc(t ? t.name : r)}</span>` : ""; };
@@ -155,7 +160,7 @@
       </div>
       ${p.bio ? `<p class="pcard__bio">${fmt(p.bio)}</p>` : own ? `<p class="pcard__bio muted">Расскажи о себе — заполни поле «О себе» в настройках.</p>` : ""}
       <div class="pcard__grid">
-        <div><b>Клан</b><span>${p.clans ? `<a class="clan-link" href="${clanUrl(p.clans)}">${flagSvg(p.clans.flag, "flag--xs")}[${esc(p.clans.tag)}] ${esc(p.clans.name)}</a>` : "—"}</span></div>
+        <div><b>Клан</b><span>${p.clans ? `<a class="clan-link" href="${clanUrl(p.clans)}">${flagSvg(p.clans.flag, "flag--xs")}${clanName(p.clans)}</a>` : "—"}</span></div>
         <div><b>Discord</b><span>${esc(p.discord || "—")}</span></div>
         <div><b>На сайте</b><span>с ${fmtDate(p.created_at)}</span></div>
         <div><b>Статус</b><span>${online ? `<i class="dot on"></i> в игре` : `<i class="dot"></i> не в сети`}</span></div>
@@ -262,10 +267,9 @@
             ${p.public ? "" : `<p class="note">Профиль скрыт: его видишь только ты. Включить показ можно в настройках.</p>`}
             <div class="card-box" id="my-clan"><h3>Мой клан</h3>
               ${p.clans ? `<a class="clan-row" href="${clanUrl(p.clans)}">${flagSvg(p.clans.flag, "flag--sm")}
-                  <span><b>[${esc(p.clans.tag)}] ${esc(p.clans.name)}</b><span class="muted small">${ROLE_NAMES[p.clan_role] || ""}</span></span><span class="arr">→</span></a>`
-                : `<p class="muted">Ты пока не в клане. Найди команду или собери свою — с флагом и тегом.</p>
-                  <div id="my-requests"></div>
-                  <div class="tile__actions"><a class="btn btn--primary" href="clans.html">Найти клан</a><a class="btn btn--ghost" href="clans.html?new">Создать клан</a></div>`}
+                  <span><b>${clanName(p.clans)}</b><span class="muted small">${ROLE_NAMES[p.clan_role] || ""}</span></span><span class="arr">→</span></a>`
+                : `<p class="muted">Ты пока не в клане. Кланы создаются и собираются в игре: введи <code>/clan</code> на сервере — через несколько минут клан появится здесь.</p>
+                  <div class="tile__actions"><a class="btn btn--primary" href="clans.html">Кланы сервера</a></div>`}
             </div>
             ${statsBlock(p, true)}
             <div class="card-box"><h3>Привилегия</h3>
@@ -307,23 +311,6 @@
         </div>`;
 
       $("logout").addEventListener("click", logout);
-      /* Мои заявки в кланы (если я пока не в клане) */
-      if (!p.clans && $("my-requests")) {
-        const { data: reqs } = await sb.from("clan_requests").select(`clan_id,created_at,${REQ_CLAN_EMBED}`).eq("user_id", user.id);
-        if (reqs && reqs.length) {
-          $("my-requests").innerHTML = `<div class="field__label" style="margin-top:16px">Мои заявки</div>` + reqs.map(r => `
-            <div class="clan-row clan-row--req">${flagSvg(r.clans?.flag, "flag--sm")}
-              <span><a href="${clanUrl(r.clans || {})}"><b>[${esc(r.clans?.tag)}] ${esc(r.clans?.name)}</b></a><span class="muted small">ждёт ответа с ${fmtDate(r.created_at)}</span></span>
-              <button class="btn btn--dark btn--sm" data-cancel="${esc(r.clan_id)}">Отозвать</button></div>`).join("");
-          $("my-requests").addEventListener("click", async e => {
-            const b = e.target.closest("[data-cancel]"); if (!b) return;
-            b.disabled = true;
-            const { error } = await sb.rpc("cancel_clan_request", { p_clan: b.dataset.cancel });
-            if (error) { b.disabled = false; return toast(errText(error)); }
-            b.closest(".clan-row").remove(); toast("Заявка отозвана");
-          });
-        }
-      }
       $("f-profile").addEventListener("submit", async e => {
         e.preventDefault(); const f = e.target; msg("m-profile", "");
         const upd = { nickname: f.nickname.value.trim(), platform: f.platform.value,
@@ -437,55 +424,56 @@
   }
 
   /* =========================================================
-     КЛАНЫ: список, страница клана, создание
-     clans.html · clans.html?tag=ABCD · clans.html?new
+     КЛАНЫ: список и страница клана
+     clans.html · clans.html?tag=Название
+     Кланы создаются и собираются в игре (ApexClan), на сайт их переносит плагин SiteSync.
+     На сайте лидер и модераторы клана рисуют флаг и пишут описание.
      ========================================================= */
   if (clRoot) {
     const qs = new URLSearchParams(location.search);
     const backLink = `<a class="back caps" href="clans.html">← Все кланы</a>`;
+    const JOIN_NAMES = { OPEN: "Открытый", PUBLIC: "Открытый", INVITE_ONLY: "По приглашению", PASSWORD: "По паролю", PASSWORD_PROTECTED: "По паролю" };
+    const joinName = c => JOIN_NAMES[(c.game || {}).join] || (c.open ? "Открытый" : "По приглашению");
+    const descOf = c => c.description || (c.game || {}).description || "";
     const fail = e => { clRoot.innerHTML = `<div class="acc-soon"><h1 class="head__title">Не удалось загрузить</h1>
       <p class="head__sub">${esc(errText(e))}</p><div class="tile__actions" style="justify-content:center"><a class="btn btn--dark" href="clans.html">← Все кланы</a></div></div>`; };
-    const needLogin = text => { clRoot.innerHTML = `<div class="acc-soon"><img src="img/logo.png" alt="">
-      <span class="head__label caps">Кланы</span><h1 class="head__title">Нужен профиль</h1><p class="head__sub">${esc(text)}</p>
-      <div class="tile__actions" style="justify-content:center"><a class="btn btn--primary" href="account.html">Войти по нику <span class="arr">→</span></a><a class="btn btn--dark" href="clans.html">Все кланы</a></div></div>`; };
 
-    qs.has("new") ? viewNew() : qs.get("tag") ? viewClan(qs.get("tag")) : viewClans();
+    qs.get("tag") ? viewClan(qs.get("tag")) : viewClans(qs.has("new"));
 
     /* ---------- Список кланов ---------- */
-    async function viewClans() {
-      const [{ data, error }, { user, me }] = await Promise.all([
-        sb.from("clans").select("id,name,tag,flag,description,open,members,created_at").order("members", { ascending: false }).order("created_at").limit(500),
+    async function viewClans(askedNew) {
+      const [{ data, error }, { me }] = await Promise.all([
+        sb.from("clans").select("id,name,tag,flag,description,open,members,created_at,game").limit(500),
         currentUser()]);
       if (error) return fail(error);
-      const all = data || [];
+      const xp = c => Number((c.game || {}).xp) || 0;
+      const all = (data || []).sort((a, b) => xp(b) - xp(a) || b.members - a.members);
       let q = "", filter = "all";
-      const myAction = !user ? `<a class="btn btn--primary" href="account.html">Войти и создать клан</a>`
-        : !me ? `<a class="btn btn--primary" href="account.html">Мой профиль</a>`
-        : me.clans ? `<a class="btn btn--ghost" href="${clanUrl(me.clans)}">${flagSvg(me.clans.flag, "flag--xs")} Мой клан [${esc(me.clans.tag)}]</a>`
-        : `<a class="btn btn--primary" href="clans.html?new">Создать клан <span class="arr">→</span></a>`;
       clRoot.innerHTML = `
         <div class="dash-head">
           <div><span class="head__label caps">Сообщество</span><h1 class="head__title">Кланы</h1>
-            <p class="head__sub">${all.length} ${plural(all.length, "клан", "клана", "кланов")} · собери команду со своим флагом и тегом или вступи в чужую.</p></div>
-          ${myAction}
+            <p class="head__sub">${all.length} ${plural(all.length, "клан", "клана", "кланов")} на сервере. Кланы создаются в игре — командой <code>/clan</code>.</p></div>
+          ${me && me.clans ? `<a class="btn btn--ghost" href="${clanUrl(me.clans)}">${flagSvg(me.clans.flag, "flag--xs")} Мой клан</a>` : ""}
         </div>
+        ${askedNew ? `<div class="card-box note-box"><b>Клан создаётся в игре.</b> Зайди на сервер и введи <code>/clan</code> — откроется меню кланов.
+          Через несколько минут клан появится здесь, и ты сможешь нарисовать ему флаг.</div>` : ""}
         <div class="pl-tools">
-          <input class="input" id="cl-q" placeholder="Поиск по названию или тегу" autocomplete="off">
-          <div class="seg seg--inline" id="cl-f"><button data-f="all" class="active">Все</button><button data-f="open">Открытые</button><button data-f="closed">По заявке</button></div>
+          <input class="input" id="cl-q" placeholder="Поиск по названию" autocomplete="off">
+          <div class="seg seg--inline" id="cl-f"><button data-f="all" class="active">Все</button><button data-f="open">Открытые</button><button data-f="closed">По приглашению</button></div>
         </div>
         <div class="cl-grid" id="cl-grid"></div>`;
       const draw = () => {
         const s = q.toLowerCase();
-        const list = all.filter(c => (filter === "all" || (filter === "open") === c.open) &&
-          (!s || c.name.toLowerCase().includes(s) || c.tag.toLowerCase().includes(s)));
+        const list = all.filter(c => (filter === "all" || (filter === "open") === c.open) && (!s || c.name.toLowerCase().includes(s)));
         $("cl-grid").innerHTML = list.length ? list.map(c => `
           <a class="cl-card" href="${clanUrl(c)}">
             <span class="cl-card__flag">${flagSvg(c.flag, "flag--md")}</span>
-            <div class="cl-card__body"><span class="cl-card__tag">[${esc(c.tag)}]</span><b>${esc(c.name)}</b>
-              ${c.description ? `<p>${esc(c.description)}</p>` : ""}
-              <span class="cl-card__meta"><span class="chip">${c.members} ${plural(c.members, "участник", "участника", "участников")}</span><span class="chip ${c.open ? "chip--ok" : ""}">${c.open ? "Открытый" : "По заявке"}</span></span></div>
+            <div class="cl-card__body"><b>${clanName(c)}${(c.game || {}).verified ? ` <span class="chip chip--ok" title="Клан подтверждён администрацией">✓</span>` : ""}</b>
+              ${descOf(c) ? `<p>${esc(descOf(c))}</p>` : ""}
+              <span class="cl-card__meta"><span class="chip">${c.members} ${plural(c.members, "участник", "участника", "участников")}</span>
+                <span class="chip">${xp(c)} XP</span><span class="chip ${c.open ? "chip--ok" : ""}">${joinName(c)}</span></span></div>
           </a>`).join("")
-          : `<p class="players-empty">${all.length ? "Ничего не нашли. Попробуй другой запрос." : "Кланов пока нет — создай первый!"}</p>`;
+          : `<p class="players-empty">${all.length ? "Ничего не нашли. Попробуй другой запрос." : "Кланов пока нет — создай первый в игре командой /clan."}</p>`;
       };
       $("cl-q").addEventListener("input", e => { q = e.target.value.trim(); draw(); });
       $("cl-f").addEventListener("click", e => { const b = e.target.closest("button"); if (!b) return;
@@ -493,61 +481,27 @@
       draw();
     }
 
-    /* ---------- Создание клана ---------- */
-    async function viewNew() {
-      const { user, me } = await currentUser();
-      if (!user || !me) return needLogin(!user ? "Чтобы создать клан, войди на сайт по нику и паролю из игры." : "Профиль ещё не готов: зайди на сервер и введи /login, потом обнови страницу.");
-      if (me.clans) { location.replace(clanUrl(me.clans)); return; }
-      myNick = me.nickname;
-      clRoot.innerHTML = `${backLink}
-        <div class="dash-head"><div><span class="head__label caps">Новый клан</span><h1 class="head__title">Создай свой клан</h1>
-          <p class="head__sub">Ты станешь владельцем. Клан сразу появится в твоём профиле и в списке кланов.</p></div></div>
-        <div class="card-box">${clanForm(null)}</div>`;
-      bindClanForm(null, async v => {
-        const { error } = await sb.rpc("create_clan", { p_name: v.name, p_tag: v.tag, p_description: v.description, p_flag: v.flag, p_open: v.open });
-        if (error) throw error;
-        toast("Клан создан!"); location.href = clanUrl(v);
-      });
-    }
-
-    /* ---------- Форма клана (создание и настройки) ---------- */
-    function clanForm(c) {
+    /* ---------- Форма страницы клана: описание и флаг ---------- */
+    function pageForm(c) {
       return `<form class="clan-form" id="f-clan" autocomplete="off">
         <div class="clan-form__fields">
-          <div class="grid-name">
-            <label class="field"><span class="field__label">Название</span><input class="input" name="cname" maxlength="24" value="${esc(c ? c.name : "")}" placeholder="Северный альянс" required></label>
-            <label class="field"><span class="field__label">Тег</span><input class="input input--tag" name="tag" maxlength="4" value="${esc(c ? c.tag : "")}" placeholder="NORD" required></label>
-          </div>
-          <p class="field__hint tag-prev">В игре и на сайте: <b id="tag-prev">[TAG]</b> ${esc(cu_nick())}</p>
-          <label class="field"><span class="field__label">Описание</span><textarea class="input" name="description" rows="5" maxlength="600" placeholder="Чем занимается клан, где живёт, кого ищет">${esc(c ? c.description || "" : "")}</textarea></label>
-          <div class="field"><span class="field__label">Вступление</span>
-            <div class="radio-row">
-              <label><input type="radio" name="open" value="1" ${!c || c.open ? "checked" : ""}> Открытый — вступают сразу</label>
-              <label><input type="radio" name="open" value="0" ${c && !c.open ? "checked" : ""}> По заявке</label>
-            </div></div>
-          <button class="btn btn--primary">${c ? "Сохранить" : "Создать клан"} <span class="arr">→</span></button>
+          <label class="field"><span class="field__label">Описание на сайте</span><textarea class="input" name="description" rows="6" maxlength="600" placeholder="Чем занимается клан, где живёт, кого ищет">${esc(c.description || "")}</textarea>
+            <span class="field__hint">Название, участники и роли меняются в игре через /clan.</span></label>
+          <button class="btn btn--primary">Сохранить <span class="arr">→</span></button>
           <p class="form__msg" id="m-clanform"></p>
         </div>
         <div class="clan-form__flag"><span class="field__label">Флаг</span><div id="flag-editor"></div></div>
       </form>`;
     }
-    let myNick = "";
-    function cu_nick() { return myNick || "Ник"; }
-    function bindClanForm(c, onSubmit) {
-      const f = $("f-clan"), el = f.elements, ed = flagEditor($("flag-editor"), c ? c.flag : DEFAULT_FLAG);
-      const prev = () => { $("tag-prev").textContent = `[${el.tag.value || "TAG"}]`; };
-      el.tag.addEventListener("input", () => { el.tag.value = el.tag.value.toUpperCase().replace(/[^A-ZА-ЯЁ0-9]/g, ""); prev(); });
-      prev();
+    function bindPageForm(c, onSubmit) {
+      const f = $("f-clan"), ed = flagEditor($("flag-editor"), c.flag);
       f.addEventListener("submit", async e => {
         e.preventDefault();
         const say = t => { $("m-clanform").textContent = t; };
-        const v = { name: el.cname.value.trim(), tag: el.tag.value.trim().toUpperCase(), description: el.description.value.trim(), flag: ed.get(), open: el.open.value === "1" };
-        if (v.name.length < 3) return say("Название — от 3 до 24 символов.");
-        if (!/^[A-ZА-ЯЁ0-9]{4}$/.test(v.tag)) return say("Тег — ровно 4 буквы или цифры.");
-        say(""); f.querySelectorAll("button, input, textarea").forEach(x => x.disabled = true);
-        try { await onSubmit(v); }
+        say(""); f.querySelectorAll("button, textarea").forEach(x => x.disabled = true);
+        try { await onSubmit({ description: f.elements.description.value.trim(), flag: ed.get() }); }
         catch (err) { say(errText(err)); }
-        finally { f.querySelectorAll("button, input, textarea").forEach(x => x.disabled = false); }
+        finally { f.querySelectorAll("button, textarea").forEach(x => x.disabled = false); }
       });
     }
 
@@ -605,146 +559,69 @@
       return { get: () => f.join("") };
     }
 
+
     /* ---------- Страница клана ---------- */
     async function viewClan(tagParam) {
-      const T = tagParam.trim().toUpperCase();
+      const T = tagParam.trim();
       const [{ data: c, error }, { user, me }] = await Promise.all([
-        sb.from("clans").select("*").eq("tag", T).maybeSingle(), currentUser()]);
+        sb.from("clans").select("*").ilike("tag", likeEsc(T)).maybeSingle(), currentUser()]);
       if (error) return fail(error);
       if (!c) {
-        clRoot.innerHTML = `<div class="acc-soon"><h1 class="head__title">Клан [${esc(T)}] не найден</h1>
-          <p class="head__sub">Возможно, его распустили или сменили тег.</p><div class="tile__actions" style="justify-content:center"><a class="btn btn--dark" href="clans.html">← Все кланы</a></div></div>`;
+        clRoot.innerHTML = `<div class="acc-soon"><h1 class="head__title">Клан «${esc(T)}» не найден</h1>
+          <p class="head__sub">Возможно, его распустили или переименовали в игре.</p><div class="tile__actions" style="justify-content:center"><a class="btn btn--dark" href="clans.html">← Все кланы</a></div></div>`;
         return;
       }
-      myNick = me ? me.nickname : "";
       const [{ data: members, error: e2 }, online] = await Promise.all([sb.rpc("clan_member_list", { p_clan: c.id }), onlineNames()]);
       if (e2) return fail(e2);
+      const g = c.game || {};
       const mine = !!me && me.clan_id === c.id, role = mine ? me.clan_role : null, staff = role === "owner" || role === "officer";
-      let myReq = null;
-      if (me && !me.clan_id && !c.open) {
-        const { data } = await sb.from("clan_requests").select("created_at").eq("clan_id", c.id).eq("user_id", user.id).maybeSingle();
-        myReq = data;
-      }
-      document.title = `[${c.tag}] ${c.name} — Кланы Сфинксляндии`;
-      const action = !user ? `<a class="btn btn--primary" href="account.html">Войти, чтобы вступить</a>`
-        : !me ? `<a class="btn btn--primary" href="account.html">Мой профиль</a>`
-        : mine ? `<span class="chip chip--ok">Ты в клане · ${ROLE_NAMES[role]}</span><button class="btn btn--dark" data-act="leave">Покинуть клан</button>`
-        : me.clan_id ? `<p class="muted">Ты уже в клане ${me.clans ? `<a class="clan-link" href="${clanUrl(me.clans)}">[${esc(me.clans.tag)}] ${esc(me.clans.name)}</a>` : ""}. Чтобы вступить сюда, сначала выйди из него.</p>`
-        : c.open ? `<button class="btn btn--primary" data-act="join">Вступить в клан <span class="arr">→</span></button>`
-        : myReq ? `<span class="chip">Заявка отправлена ${fmtDate(myReq.created_at)}</span><button class="btn btn--dark" data-act="cancel">Отозвать заявку</button>`
-        : `<form id="f-req" class="req-form"><textarea class="input" name="message" rows="2" maxlength="300" placeholder="Пара слов о себе: что строишь, когда играешь (необязательно)"></textarea>
-            <button class="btn btn--primary">Подать заявку <span class="arr">→</span></button></form>`;
-      const canKick = m => mine && m.user_id !== user.id && (role === "owner" || (role === "officer" && m.role === "member"));
+      const kdr = g.deaths ? (g.kills / g.deaths).toFixed(2) : String(g.kills || 0);
+      document.title = `${c.name} — Кланы Сфинксляндии`;
       clRoot.innerHTML = `${backLink}
         <div class="clan-hero">
           <div class="banner">${flagSvg(c.flag, "flag--lg")}</div>
           <div class="clan-hero__info">
             <span class="head__label caps">Клан · основан ${fmtDate(c.created_at)}</span>
-            <h1 class="head__title"><span class="clan-tag">[${esc(c.tag)}]</span> ${esc(c.name)}</h1>
+            <h1 class="head__title">${clanName(c)}</h1>
             <div class="pcard__meta"><span class="chip">${c.members} ${plural(c.members, "участник", "участника", "участников")}</span>
-              <span class="chip ${c.open ? "chip--ok" : ""}">${c.open ? "Открытый — вступай сразу" : "Вступление по заявке"}</span></div>
-            ${c.description ? `<p class="clan-desc">${fmt(c.description)}</p>` : ""}
-            <div class="clan-actions">${action}</div>
+              <span class="chip ${c.open ? "chip--ok" : ""}">${joinName(c)}</span>
+              ${g.verified ? `<span class="chip chip--ok">✓ подтверждён</span>` : ""}
+              ${mine ? `<span class="chip chip--rank" style="--c:var(--yellow)">Твой клан · ${ROLE_NAMES[role] || ""}</span>` : ""}</div>
+            ${descOf(c) ? `<p class="clan-desc">${fmt(descOf(c))}</p>` : ""}
+            <div class="stats clan-stats">
+              <div><b>${Number(g.xp || 0).toLocaleString("ru-RU")}</b><span class="caps">Опыт клана</span></div>
+              <div><b>${g.prestige || 0}</b><span class="caps">Престиж</span></div>
+              <div><b>${g.kills || 0}</b><span class="caps">Убийств</span></div>
+              <div><b>${g.deaths || 0}</b><span class="caps">Смертей</span></div>
+              <div><b>${kdr}</b><span class="caps">K/D</span></div>
+            </div>
+            ${!mine ? `<p class="note">Вступить в клан можно в игре: попроси лидера пригласить тебя или открой меню <code>/clan</code>.</p>` : ""}
           </div>
         </div>
         <div class="dash ${staff ? "" : "dash--single"}">
           <div class="dash__col">
-            <div class="card-box"><h3>Участники · ${members.length}</h3>
+            <div class="card-box"><h3>Участники · ${members.length}${members.length < c.members ? ` <span class="muted small">(ещё ${c.members - members.length} без профиля на сайте)</span>` : ""}</h3>
               <div class="members">${members.map(m => `
                 <div class="member-row">
                   <img src="${ava(m, 32)}" alt="" loading="lazy">
                   <div class="member-row__main">
                     ${m.is_public ? `<a href="players.html?nick=${encodeURIComponent(m.nickname)}"><b>${esc(m.nickname)}</b></a>` : `<b>${esc(m.nickname)}</b>`}${isOn(m, online) ? `<i class="dot on" title="В игре"></i>` : ""}
-                    <span class="muted small">${ROLE_NAMES[m.role] || ""} · с ${fmtDate(m.joined_at)}</span>
+                    <span class="muted small">${ROLE_NAMES[m.role] || ""}${m.joined_at ? ` · с ${fmtDate(m.joined_at)}` : ""}</span>
                   </div>
-                  <span class="member-row__chips">${m.role === "owner" ? `<span class="chip chip--rank" style="--c:var(--yellow)">Владелец</span>` : m.role === "officer" ? `<span class="chip">Офицер</span>` : ""}${rankChip(m.rank)}</span>
-                  ${role === "owner" && m.user_id !== user.id || canKick(m) ? `<span class="member-row__tools">
-                    ${role === "owner" && m.user_id !== user.id ? `<button class="btn btn--dark btn--sm" data-act="role" data-role="${m.role === "officer" ? "member" : "officer"}" data-u="${esc(m.user_id)}" data-n="${esc(m.nickname)}">${m.role === "officer" ? "Снять офицера" : "Сделать офицером"}</button>
-                      <button class="btn btn--dark btn--sm" data-act="role" data-role="owner" data-u="${esc(m.user_id)}" data-n="${esc(m.nickname)}">Передать клан</button>` : ""}
-                    ${canKick(m) ? `<button class="btn btn--dark btn--sm btn--danger" data-act="kick" data-u="${esc(m.user_id)}" data-n="${esc(m.nickname)}">Исключить</button>` : ""}
-                  </span>` : ""}
-                </div>`).join("")}</div>
+                  <span class="member-row__chips">${m.role === "owner" ? `<span class="chip chip--rank" style="--c:var(--yellow)">Лидер</span>` : m.role === "officer" ? `<span class="chip">Модератор</span>` : ""}${rankChip(m.rank)}</span>
+                </div>`).join("") || `<p class="muted">Участники клана ещё не заходили на сайт.</p>`}</div>
             </div>
           </div>
           ${staff ? `<div class="dash__col">
-            <div class="card-box"><h3>Заявки</h3><div id="reqs"><p class="muted">Загружаем…</p></div></div>
-            <div class="card-box"><h3>Настройки клана</h3>${clanForm(c)}</div>
-            ${role === "owner" ? `<div class="card-box danger-box"><h3>Распустить клан</h3><p class="muted">Клан удалится навсегда, все участники выйдут из него.</p><button class="btn btn--dark" data-act="disband">Распустить</button></div>` : ""}
+            <div class="card-box"><h3>Страница клана</h3>${pageForm(c)}</div>
           </div>` : ""}
         </div>`;
 
-      const reload = () => viewClan(T);
-      const call = async (fn, args, okText) => {
-        const { data, error } = await sb.rpc(fn, args);
-        if (error) { toast(errText(error)); return null; }
-        if (okText) toast(okText);
-        return data ?? true;
-      };
-
-      if (staff) {
-        loadRequests();
-        bindClanForm(c, async v => {
-          const { error } = await sb.rpc("update_clan", { p_clan: c.id, p_name: v.name, p_tag: v.tag, p_description: v.description, p_flag: v.flag, p_open: v.open });
-          if (error) throw error;
-          toast("Клан сохранён");
-          v.tag === c.tag ? reload() : location.replace(clanUrl(v));
-        });
-      }
-      async function loadRequests() {
-        const box = $("reqs");
-        const { data, error } = await sb.rpc("clan_request_list", { p_clan: c.id });
-        if (error) { box.innerHTML = `<p class="form__msg">${esc(errText(error))}</p>`; return; }
-        box.innerHTML = data.length ? data.map(r => `
-          <div class="req-row">
-            <img src="${head(r.nickname, 32)}" alt="">
-            <div><b>${esc(r.nickname)}</b> <span class="chip">${platformName(r.platform)}</span>
-              ${r.message ? `<p>${fmt(r.message)}</p>` : ""}<span class="muted small">${fmtDate(r.created_at)}</span></div>
-            <span class="req-row__tools">
-              <button class="btn btn--primary btn--sm" data-act="answer" data-ok="1" data-u="${esc(r.user_id)}">Принять</button>
-              <button class="btn btn--dark btn--sm" data-act="answer" data-ok="0" data-u="${esc(r.user_id)}">Отклонить</button>
-            </span>
-          </div>`).join("")
-          : `<p class="muted">${c.open ? "Клан открытый — игроки вступают сразу, без заявок." : "Новых заявок нет."}</p>`;
-      }
-
-      $("f-req")?.addEventListener("submit", async e => {
-        e.preventDefault(); const f = e.target; f.querySelector("button").disabled = true;
-        const r = await call("join_clan", { p_clan: c.id, p_message: f.message.value.trim() || null });
-        if (r) { toast(r === "joined" ? "Ты вступил в клан!" : "Заявка отправлена"); reload(); } else f.querySelector("button").disabled = false;
+      if (staff) bindPageForm(c, async v => {
+        const { error } = await sb.rpc("update_clan_page", { p_clan: c.id, p_description: v.description, p_flag: v.flag });
+        if (error) throw error;
+        toast("Страница клана сохранена"); viewClan(T);
       });
-
-      clRoot.onclick = async e => {
-        const b = e.target.closest("[data-act]"); if (!b || b.disabled) return;
-        const act = b.dataset.act, u = b.dataset.u, n = b.dataset.n;
-        b.disabled = true;
-        let done = null;
-        if (act === "join") {
-          done = await call("join_clan", { p_clan: c.id, p_message: null });
-          if (done) toast(done === "joined" ? "Ты вступил в клан!" : "Заявка отправлена");
-        } else if (act === "cancel") {
-          done = await call("cancel_clan_request", { p_clan: c.id }, "Заявка отозвана");
-        } else if (act === "leave") {
-          const warn = role === "owner"
-            ? (c.members > 1 ? "Ты владелец. Клан перейдёт к офицеру или самому давнему участнику. Выйти?" : "Ты последний участник — клан будет удалён. Выйти?")
-            : "Покинуть клан?";
-          if (confirm(warn)) done = await call("leave_clan", {}, "Ты вышел из клана");
-        } else if (act === "role") {
-          const ask = b.dataset.role === "owner" ? `Передать клан игроку ${n}? Ты станешь офицером.` : null;
-          if (!ask || confirm(ask)) done = await call("set_clan_role", { p_user: u, p_role: b.dataset.role }, "Роль изменена");
-        } else if (act === "kick") {
-          if (confirm(`Исключить ${n} из клана?`)) done = await call("kick_clan_member", { p_user: u }, `${n} исключён`);
-        } else if (act === "answer") {
-          const r = await call("answer_clan_request", { p_clan: c.id, p_user: u, p_accept: b.dataset.ok === "1" });
-          if (r) toast(r === "accepted" ? "Игрок принят в клан" : r === "busy" ? "Игрок уже вступил в другой клан" : "Заявка отклонена");
-          done = r;
-        } else if (act === "disband") {
-          const typed = prompt(`Чтобы распустить клан навсегда, введи его тег: ${c.tag}`);
-          if (typed != null && typed.trim().toUpperCase() === c.tag) {
-            if (await call("disband_clan", {}, "Клан распущен")) { location.href = "clans.html"; return; }
-          } else if (typed != null) toast("Тег не совпадает — клан не распущен");
-        }
-        if (done) reload(); else b.disabled = false;
-      };
     }
   }
 })();
