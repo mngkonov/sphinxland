@@ -59,12 +59,13 @@ $$(".nav a").forEach(a => { if (a.getAttribute("href") === page) a.classList.add
 (function accBtn() {
   const b = $("acc-btn"); if (!b) return;
   if (page === "account.html") b.classList.add("active");
-  let nick = "", logged = false;
+  let nick = "", skin = "", logged = false;
   try {
     nick = localStorage.getItem("sl-nick") || "";
+    skin = localStorage.getItem("sl-skin") || "";
     logged = Object.keys(localStorage).some(k => /^sb-.+-auth-token$/.test(k));
   } catch {}
-  if (logged && nick) { b.querySelector("img").src = head(nick, 24); b.querySelector("span").textContent = nick; }
+  if (logged && nick) { b.querySelector("img").src = /^[0-9a-f]{20,80}$/.test(skin) ? `https://mc-heads.net/avatar/${skin}/24` : head(nick, 24); b.querySelector("span").textContent = nick; }
   else if ((SITE.auth || {}).supabaseUrl) b.querySelector("span").textContent = "Войти";
 })();
 const header = document.querySelector(".header");

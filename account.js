@@ -38,7 +38,12 @@
   /* У профиля клан свой (clan_id), но кланы связаны с профилями ещё и через заявки — указываем связь явно */
   const CLAN_EMBED = "clans:clans!profiles_clan_id_fkey(id,name,tag,flag)";
   const REQ_CLAN_EMBED = "clans(id,name,tag,flag)";
-  const PUBLIC_COLS = `nickname,platform,bio,discord,rank,verified,created_at,stats,last_seen,clan_role,${CLAN_EMBED}`;
+  const PUBLIC_COLS = `nickname,platform,bio,discord,rank,verified,created_at,stats,last_seen,skin,online,clan_role,${CLAN_EMBED}`;
+  /* Настоящий скин (из SkinsRestorer через плагин SiteSync) по хешу текстуры; иначе — по нику */
+  const SKIN_RE = /^[0-9a-f]{20,80}$/;
+  const ava = (p, size) => SKIN_RE.test(p.skin || "") ? `https://mc-heads.net/avatar/${p.skin}/${size}` : head(p.nickname, size);
+  const bodyImg = p => `https://mc-heads.net/body/${SKIN_RE.test(p.skin || "") ? p.skin : encodeURIComponent(p.nickname)}/180`;
+  const isOn = (p, online) => !!p.online || online.has(p.nickname.toLowerCase());
   const ROLE_NAMES = { owner: "Владелец", officer: "Офицер", member: "Участник" };
 
   /* ---------- Пиксельный флаг клана: 8×12 клеток, цвета — 16 красителей Minecraft ---------- */
@@ -144,7 +149,7 @@
   function profileCard(p, online, own) {
     return `<div class="pcard pcard--big">
       <div class="pcard__top">
-        <img class="pcard__ava" src="${head(p.nickname, 96)}" alt="">
+        <img class="pcard__ava" src="${ava(p, 96)}" alt="">
         <div>
           <div class="pcard__nick">${esc(p.nickname)}</div>
           <div class="pcard__meta">${rankChip(p.rank)}<span class="chip">${platformName(p.platform)}</span>${p.verified ? `<span class="chip chip--ok" title="Ник подтверждён на сервере">✓ подтверждён</span>` : ""}</div>
@@ -177,7 +182,7 @@
       const { data: prof, error } = await loadMe(session.user.id);
       if (error) { accRoot.innerHTML = `<div class="acc-soon"><h1 class="head__title">Не удалось загрузить профиль</h1><p class="head__sub">${esc(errText(error))}</p></div>`; return; }
       if (!prof) return viewCreate(session.user);
-      try { localStorage.setItem("sl-nick", prof.nickname); } catch {}
+      try { localStorage.setItem("sl-nick", prof.nickname); localStorage.setItem("sl-skin", prof.skin || ""); } catch {}
       viewDashboard(session.user, prof);
     }
 
@@ -321,7 +326,7 @@
 
     /* ---------- Кабинет ---------- */
     async function viewDashboard(user, p) {
-      const online = (await onlineNames()).has(p.nickname.toLowerCase());
+      const online = isOn(p, await onlineNames());
       const tier = findTier(p.rank), game = isGameAccount(user, p);
       accRoot.innerHTML = `
         <div class="dash-head">
@@ -409,7 +414,7 @@
         const { data, error } = e1 ? { error: e1 } : await loadMe(user.id);
         lock(f, false);
         if (error) return msg("m-profile", errText(error));
-        try { localStorage.setItem("sl-nick", data.nickname); } catch {}
+        try { localStorage.setItem("sl-nick", data.nickname); localStorage.setItem("sl-skin", data.skin || ""); } catch {}
         toast("Профиль сохранён"); viewDashboard(user, data);
       });
       $("f-pass")?.addEventListener("submit", async e => {
@@ -431,7 +436,7 @@
 
     async function logout() {
       await sb.auth.signOut();
-      try { localStorage.removeItem("sl-nick"); } catch {}
+      try { localStorage.removeItem("sl-nick"); localStorage.removeItem("sl-skin"); } catch {}
       boot();
     }
 
@@ -463,9 +468,9 @@
       plRoot.innerHTML = `
         <a class="back caps" href="players.html">← Все игроки</a>
         <div class="dash">
-          <div class="dash__col">${profileCard(p, online.has(p.nickname.toLowerCase()), false)}</div>
+          <div class="dash__col">${profileCard(p, isOn(p, online), false)}</div>
           <div class="dash__col">
-            <div class="card-box skin"><img src="https://mc-heads.net/body/${encodeURIComponent(p.nickname)}/180" alt="Скин ${esc(p.nickname)}" loading="lazy"></div>
+            <div class="card-box skin"><img src="${bodyImg(p)}" alt="Скин ${esc(p.nickname)}" loading="lazy"></div>
             ${statsBlock(p, false)}
           </div>
         </div>`;
@@ -476,7 +481,7 @@
         withFallback(cols => sb.from("profiles").select(cols).order("created_at", { ascending: false }).limit(1000)),
         onlineNames()]);
       if (error) { plRoot.innerHTML = `<div class="acc-soon"><h1 class="head__title">Не удалось загрузить</h1><p class="head__sub">${esc(errText(error))}</p></div>`; return; }
-      const all = (data || []).map(p => ({ ...p, on: online.has(p.nickname.toLowerCase()) }));
+      const all = (data || []).map(p => ({ ...p, on: isOn(p, online) }));
       let filter = "all", q = "";
       plRoot.innerHTML = `
         <div class="dash-head">
@@ -498,7 +503,7 @@
           (!s || p.nickname.toLowerCase().includes(s) || (p.clans && (p.clans.name.toLowerCase().includes(s) || p.clans.tag.toLowerCase().includes(s)))));
         $("pl-grid").innerHTML = list.length ? list.map(p => `
           <a class="pl-card" href="players.html?nick=${encodeURIComponent(p.nickname)}">
-            <img src="${head(p.nickname, 48)}" alt="" loading="lazy">
+            <img src="${ava(p, 48)}" alt="" loading="lazy">
             <div><b>${p.on ? `<i class="dot on"></i>` : ""}${esc(p.nickname)}</b>
               <span>${p.clans ? `<span class="chip chip--clan">${flagSvg(p.clans.flag, "flag--xs")}${esc(p.clans.tag)}</span>` : ""}${rankChip(p.rank)}<span class="chip">${platformName(p.platform)}</span></span></div>
           </a>`).join("")
@@ -727,9 +732,9 @@
             <div class="card-box"><h3>Участники · ${members.length}</h3>
               <div class="members">${members.map(m => `
                 <div class="member-row">
-                  <img src="${head(m.nickname, 32)}" alt="" loading="lazy">
+                  <img src="${ava(m, 32)}" alt="" loading="lazy">
                   <div class="member-row__main">
-                    ${m.is_public ? `<a href="players.html?nick=${encodeURIComponent(m.nickname)}"><b>${esc(m.nickname)}</b></a>` : `<b>${esc(m.nickname)}</b>`}${online.has(m.nickname.toLowerCase()) ? `<i class="dot on" title="В игре"></i>` : ""}
+                    ${m.is_public ? `<a href="players.html?nick=${encodeURIComponent(m.nickname)}"><b>${esc(m.nickname)}</b></a>` : `<b>${esc(m.nickname)}</b>`}${isOn(m, online) ? `<i class="dot on" title="В игре"></i>` : ""}
                     <span class="muted small">${ROLE_NAMES[m.role] || ""} · с ${fmtDate(m.joined_at)}</span>
                   </div>
                   <span class="member-row__chips">${m.role === "owner" ? `<span class="chip chip--rank" style="--c:var(--yellow)">Владелец</span>` : m.role === "officer" ? `<span class="chip">Офицер</span>` : ""}${rankChip(m.rank)}</span>
