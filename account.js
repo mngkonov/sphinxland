@@ -140,10 +140,13 @@
     distance: ["Пройдено", v => `${Number(v).toLocaleString("ru-RU")} блоков`],
   };
   function statsBlock(p, own) {
-    const st = p.stats && typeof p.stats === "object" ? Object.entries(p.stats).filter(([, v]) => v != null && v !== "") : [];
+    /* Порядок — как в STAT_NAMES (база хранит ключи JSON в своём порядке), неизвестные ключи — в конце */
+    const order = Object.keys(STAT_NAMES);
+    const st = p.stats && typeof p.stats === "object" ? Object.entries(p.stats).filter(([, v]) => v != null && v !== "")
+      .sort(([a], [b]) => (order.indexOf(a) + 1 || 99) - (order.indexOf(b) + 1 || 99)) : [];
     const last = p.last_seen ? `<p class="muted small">Последний раз в игре: ${fmtDate(p.last_seen)}</p>` : "";
     if (!st.length) return `<div class="card-box"><h3>Статистика с сервера</h3>
-      <p class="muted">${own ? "Здесь появятся твои часы в игре, добытые блоки и другие цифры, когда мы подключим сервер к сайту." : "Статистика пока не собрана."}</p>${last}</div>`;
+      <p class="muted">${own ? "Зайди на сервер — твои часы в игре, добытые блоки и другие цифры появятся здесь через несколько минут или сразу после выхода из игры." : "Статистика появится, когда игрок зайдёт на сервер."}</p>${last}</div>`;
     return `<div class="card-box"><h3>Статистика с сервера</h3><div class="stats">${st.map(([k, v]) => {
       const [name, f] = STAT_NAMES[k] || [k, x => x];
       return `<div><b>${esc(f(v))}</b><span class="caps">${esc(name)}</span></div>`;
