@@ -1,10 +1,10 @@
 name: SiteSync
-version: 1.1.0
+version: 1.2.0
 main: ru.sphinxland.sitesync.SiteSync
 api-version: '1.21'
 depend: [AuthMe]
-softdepend: [floodgate]
-description: Аккаунты AuthMe автоматически появляются на сайте Сфинксляндии
+softdepend: [floodgate, SkinsRestorer]
+description: Аккаунты AuthMe, скины, статистика и статус «в игре» на сайте Сфинксляндии
 commands:
   sitesync:
     description: Статус и ручная синхронизация с сайтом

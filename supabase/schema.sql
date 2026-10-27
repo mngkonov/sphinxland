@@ -34,6 +34,12 @@ alter table public.profiles add column if not exists source text not null defaul
 alter table public.profiles drop constraint if exists profiles_source_check;
 alter table public.profiles add constraint profiles_source_check check (source in ('site', 'game'));
 
+-- Данные с сервера (пишет только плагин SiteSync): скин из SkinsRestorer и статус «в игре»
+alter table public.profiles add column if not exists skin text;  -- хеш текстуры скина (textures.minecraft.net/texture/<хеш>)
+alter table public.profiles drop constraint if exists profiles_skin_check;
+alter table public.profiles add constraint profiles_skin_check check (skin ~ '^[0-9a-f]{20,80}$');
+alter table public.profiles add column if not exists online boolean not null default false;
+
 -- ---------------------------------------------------------
 -- КЛАНЫ
 -- ---------------------------------------------------------
@@ -252,10 +258,11 @@ begin
 end $$;
 
 -- Участники клана (публично: ник, роль, дата вступления)
+drop function if exists public.clan_member_list(uuid);  -- поменялся список колонок
 create or replace function public.clan_member_list(p_clan uuid)
-returns table (user_id uuid, nickname text, platform text, role text, joined_at timestamptz, rank text, is_public boolean)
+returns table (user_id uuid, nickname text, platform text, role text, joined_at timestamptz, rank text, is_public boolean, skin text, online boolean)
 language sql stable security definer set search_path = '' as $$
-  select id, nickname, platform, clan_role, clan_joined_at, rank, public from public.profiles
+  select id, nickname, platform, clan_role, clan_joined_at, rank, public, skin, online from public.profiles
   where clan_id = p_clan
   order by case clan_role when 'owner' then 0 when 'officer' then 1 else 2 end, clan_joined_at;
 $$;

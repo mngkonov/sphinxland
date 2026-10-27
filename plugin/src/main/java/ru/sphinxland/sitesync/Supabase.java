@@ -160,6 +160,23 @@ final class Supabase {
         call("POST", "/rest/v1/profiles", b, "Prefer", "return=minimal");
     }
 
+    /** Живые данные с сервера: статус «в игре», время, статистика и скин (null — не трогать). */
+    void updateLive(String id, boolean online, String lastSeen, JsonObject stats, String skin) throws ApiException {
+        JsonObject b = new JsonObject();
+        b.addProperty("online", online);
+        b.addProperty("last_seen", lastSeen);
+        if (stats != null) b.add("stats", stats);
+        if (skin != null) b.addProperty("skin", skin);
+        call("PATCH", "/rest/v1/profiles?id=eq." + enc(id), b, "Prefer", "return=minimal");
+    }
+
+    /** Снимает статус «в игре» со всех (при запуске и остановке плагина — на случай падения сервера). */
+    void resetOnline() throws ApiException {
+        JsonObject b = new JsonObject();
+        b.addProperty("online", false);
+        call("PATCH", "/rest/v1/profiles?online=is.true", b, "Prefer", "return=minimal");
+    }
+
     void updateLastSeen(String id, String lastSeen) throws ApiException {
         JsonObject b = new JsonObject();
         b.addProperty("last_seen", lastSeen);

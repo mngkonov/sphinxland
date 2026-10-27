@@ -1,5 +1,7 @@
 package ru.sphinxland.sitesync;
 
+import com.google.gson.JsonObject;
+
 import org.bukkit.ChatColor;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
@@ -9,6 +11,8 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerCommandPreprocessEvent;
+import org.bukkit.event.player.PlayerJoinEvent;
+import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitTask;
@@ -40,6 +44,8 @@ import java.util.regex.Pattern;
  *     введённый пароль, через пару секунд сверяет его с AuthMe (AuthMeApi.checkPassword)
  *     и, если пароль верный, ставит такой же пароль аккаунту на сайте.
  *     Пароль нигде не сохраняется и не пишется в лог, на сайт он уходит по HTTPS.
+ *  3. При входе и выходе игрока (и раз в N минут, пока он онлайн) отправляет на сайт
+ *     статус «в игре», скин из профиля (его подставляет SkinsRestorer) и статистику.
  */
 public final class SiteSync extends JavaPlugin implements Listener {
 
@@ -60,6 +66,8 @@ public final class SiteSync extends JavaPlugin implements Listener {
     private BukkitTask timer;
     private final Set<String> conflicts = ConcurrentHashMap.newKeySet();
     private final Set<String> skipped = ConcurrentHashMap.newKeySet();
+    /** ник в нижнем регистре → id профиля из игры (чтобы не искать его при каждом входе) */
+    private final Map<String, String> gameIds = new ConcurrentHashMap<>();
     private final AtomicBoolean syncing = new AtomicBoolean();
     private final SecureRandom random = new SecureRandom();
     private volatile String lastSync = "ещё не было";
@@ -109,10 +117,94 @@ public final class SiteSync extends JavaPlugin implements Listener {
 
         long every = Math.max(1, c.getLong("sync-interval-minutes", 10)) * 60L * 20L;
         ready = true;
+        gameIds.clear();
         timer = getServer().getScheduler().runTaskTimerAsynchronously(this, this::fullSync, 20L * 15, every);
+        // Статус «в игре» мог остаться после падения сервера — сбрасываем и отмечаем тех, кто сейчас онлайн
+        Supabase client = sb;
+        getServer().getScheduler().runTaskLaterAsynchronously(this, () -> {
+            try {
+                client.resetOnline();
+            } catch (Supabase.ApiException e) {
+                getLogger().warning("Не удалось сбросить статусы «в игре»: " + e.getMessage());
+            }
+            pushOnlinePlayers();
+        }, 40L);
         String m = "Работает: база AuthMe — " + db.getPath() + ", синхронизация каждые " + every / 1200 + " мин. (первая — через 15 сек.)";
         getLogger().info(m);
         return m;
+    }
+
+    @Override
+    public void onDisable() {
+        // Сервер останавливается — на сайте никто не должен остаться «в игре»
+        if (ready && sb != null) {
+            try {
+                sb.resetOnline();
+            } catch (Supabase.ApiException ignored) {
+            }
+        }
+    }
+
+    /* ---------- Вход и выход: статус, скин, статистика ---------- */
+
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onJoin(PlayerJoinEvent e) {
+        if (!ready) return;
+        UUID id = e.getPlayer().getUniqueId();
+        // SkinsRestorer применяет скин чуть позже входа — ждём 3 секунды
+        getServer().getScheduler().runTaskLater(this, () -> {
+            Player p = getServer().getPlayer(id);
+            if (p != null) pushLive(p, true);
+        }, 60L);
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onQuit(PlayerQuitEvent e) {
+        if (ready) pushLive(e.getPlayer(), false);
+    }
+
+    /** Собирает данные в основном потоке и отправляет на сайт в фоне. */
+    private void pushLive(Player p, boolean online) {
+        if (!isEnabled()) return;
+        String nick = p.getName();
+        JsonObject stats = PlayerData.stats(p);
+        String skin = PlayerData.skinHash(p);
+        String now = Instant.now().toString();
+        Supabase client = sb;
+        getServer().getScheduler().runTaskAsynchronously(this, () -> {
+            try {
+                String id = gameId(client, nick);
+                if (id != null) client.updateLive(id, online, now, stats, skin);
+            } catch (Supabase.ApiException ex) {
+                getLogger().warning("Не удалось обновить статус «" + nick + "» на сайте: " + ex.getMessage());
+            }
+        });
+    }
+
+    /** Обновляет всех, кто сейчас онлайн, — по одному игроку за тик, чтобы не нагружать сервер. */
+    private void pushOnlinePlayers() {
+        if (!isEnabled()) return;
+        getServer().getScheduler().runTask(this, () -> {
+            long delay = 0;
+            for (Player p : getServer().getOnlinePlayers()) {
+                UUID id = p.getUniqueId();
+                getServer().getScheduler().runTaskLater(this, () -> {
+                    Player pl = getServer().getPlayer(id);
+                    if (pl != null) pushLive(pl, true);
+                }, ++delay);
+            }
+        });
+    }
+
+    /** id профиля из игры по нику или null (профили, созданные на сайте по почте, не трогаем). */
+    private String gameId(Supabase client, String nick) throws Supabase.ApiException {
+        String key = nick.toLowerCase(Locale.ROOT);
+        String id = gameIds.get(key);
+        if (id != null) return id;
+        Supabase.Profile p = client.findProfile(nick);
+        if (p == null || !"game".equals(p.source())) return null;
+        gameIds.put(key, p.id());
+        return p.id();
     }
 
     /* ---------- Пароль из команд AuthMe ---------- */
@@ -197,7 +289,10 @@ public final class SiteSync extends JavaPlugin implements Listener {
         }
         Supabase.Profile existing = sb.findProfile(nick);
         if (existing != null) {
-            if ("game".equals(existing.source())) return new Result(existing.id(), false);
+            if ("game".equals(existing.source())) {
+                gameIds.put(key, existing.id());
+                return new Result(existing.id(), false);
+            }
             conflicts.add(key);
             getLogger().warning("Ник «" + nick + "» уже занят профилем, который зарегистрировали на сайте по почте. Аккаунт из игры не создаю.");
             return new Result(null, false);
@@ -236,6 +331,7 @@ public final class SiteSync extends JavaPlugin implements Listener {
             }
             throw e;
         }
+        gameIds.put(key, userId);
         getLogger().info("Создан профиль на сайте: " + nick);
         return new Result(userId, true);
     }
@@ -269,6 +365,7 @@ public final class SiteSync extends JavaPlugin implements Listener {
         try {
             List<AuthMeReader.Row> rows = authme.readAll();
             Map<String, Supabase.Profile> game = sb.gameProfiles();
+            game.forEach((k, p) -> gameIds.put(k, p.id()));
             for (AuthMeReader.Row r : rows) {
                 try {
                     Supabase.Profile p = game.get(r.nick().toLowerCase(Locale.ROOT));
@@ -286,6 +383,7 @@ public final class SiteSync extends JavaPlugin implements Listener {
             lastSync = TIME.format(Instant.now()) + " — игроков в AuthMe: " + rows.size() + ", новых профилей: " + created
                     + ", обновлено: " + updated + (failed > 0 ? ", ошибок: " + failed : "");
             if (created > 0 || updated > 0 || failed > 0) getLogger().info("Синхронизация: " + lastSync);
+            pushOnlinePlayers();
         } catch (Exception e) {
             lastSync = TIME.format(Instant.now()) + " — ошибка: " + e.getMessage();
             getLogger().warning("Синхронизация не удалась: " + e.getMessage());
