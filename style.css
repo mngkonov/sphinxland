@@ -714,3 +714,57 @@ a.clan-row:hover { border-color: var(--yellow); }
 @media (max-width: 760px) { .clan-stats { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 .note-box { margin-bottom: 24px; color: rgba(243,239,228,.85); border-color: rgba(255,201,42,.35); }
 .acc-page code, .note code { font-family: var(--mono); font-size: .9em; color: var(--yellow); background: var(--bg-3); padding: 1px 6px; }
+
+/* =========================================================
+   Статистика сервера
+   ========================================================= */
+.st-specs { margin-bottom: 20px; }
+.st-specs .spec__num small { font-family: var(--body); }
+.st-small { font-family: var(--head); font-weight: 600; font-size: clamp(22px, 2.4vw, 32px); }
+.status--off { color: var(--muted); }
+/* Статус TPS: цвет + значок + слово */
+.st-badge { display: inline-flex; gap: 4px; margin-left: 6px; padding: 1px 6px; border: 1px solid currentColor; font-size: 10px; letter-spacing: .04em; }
+.st-badge--good { color: var(--green); }
+.st-badge--warn { color: var(--amber); }
+.st-badge--bad { color: var(--red); }
+
+.st-chart-card { margin-bottom: 20px; position: relative; }
+.st-chart-head { display: flex; justify-content: space-between; align-items: start; gap: 16px; flex-wrap: wrap; margin-bottom: 14px; }
+.st-chart-head h3 { margin-bottom: 4px; }
+.st-chart-head b { color: var(--text); }
+.st-chart { position: relative; min-height: 260px; }
+.ch { display: block; overflow: visible; }
+.ch-grid { stroke: var(--line); stroke-width: 1; }
+.ch-ax { fill: var(--muted); font-family: var(--mono); font-size: 11px; }
+.ch-line { fill: none; stroke: var(--yellow); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.ch-area { fill: rgba(255,201,42,.12); }
+.ch-cross { stroke: var(--line-2); stroke-width: 1; stroke-dasharray: 3 3; }
+.ch-dot { fill: var(--yellow); stroke: var(--bg-2); stroke-width: 2; }
+.ch-tip { position: absolute; pointer-events: none; min-width: 140px; padding: 8px 10px; background: var(--bg); border: 1px solid var(--line-2); font-size: 13px; box-shadow: 0 10px 30px rgba(0,0,0,.5); }
+.ch-tip b { font-family: var(--pixel); font-size: 18px; color: var(--text); font-weight: 500; }
+.ch-tip span { display: block; color: var(--muted); font-family: var(--mono); font-size: 11px; margin-top: 2px; }
+.st-table { margin-top: 12px; }
+.st-table summary { cursor: pointer; color: var(--muted); font-size: 13px; }
+.st-table .st-worlds { margin-top: 10px; max-height: 300px; overflow: auto; }
+
+.st-tops { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; margin: 20px 0; }
+.st-top { list-style: none; display: grid; gap: 2px; }
+.st-top li { overflow: hidden; position: relative; display: grid; grid-template-columns: 24px minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 8px 6px; isolation: isolate; }
+.st-top__n { font-family: var(--pixel); color: var(--muted); font-size: 15px; text-align: right; }
+.st-top li:nth-child(-n+3) .st-top__n { color: var(--yellow); }
+.st-top a { display: flex; align-items: center; gap: 8px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.st-top a:hover { color: var(--yellow); }
+.st-top img { width: 24px; height: 24px; image-rendering: pixelated; flex: none; }
+.st-top__v { font-family: var(--mono); font-size: 13px; color: var(--text); }
+/* Полоса величины — одна приглушённая гамма, за текстом */
+.st-top__bar { position: absolute; left: 0; top: 2px; bottom: 2px; z-index: -1; background: rgba(255,201,42,.07); border-right: 2px solid rgba(255,201,42,.35); }
+
+.st-worlds { display: grid; }
+.st-worlds__row { display: grid; grid-template-columns: minmax(0, 2fr) repeat(3, minmax(0, 1fr)); gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--line); font-family: var(--mono); font-size: 13px; }
+.st-worlds__row:last-child { border-bottom: 0; }
+.st-worlds__row span:first-child { font-family: var(--body); display: grid; }
+.st-worlds__row small { font-size: 12px; }
+.st-worlds__head { color: var(--muted); font-size: 11px; }
+.st-table .st-worlds__row { grid-template-columns: 1fr 1fr; }
+@media (max-width: 860px) { .st-tops { grid-template-columns: 1fr; } }
+@media (max-width: 760px) { .st-worlds__row { grid-template-columns: minmax(0, 1.4fr) repeat(3, minmax(0, 1fr)); gap: 6px; font-size: 12px; } }

@@ -7,8 +7,8 @@
    играть на сервере можно и без неё.
    ========================================================= */
 (function () {
-  const accRoot = $("acc"), plRoot = $("players-root"), clRoot = $("clans-root");
-  const root = accRoot || plRoot || clRoot; if (!root) return;
+  const accRoot = $("acc"), plRoot = $("players-root"), clRoot = $("clans-root"), stRoot = $("stats-root");
+  const root = accRoot || plRoot || clRoot || stRoot; if (!root) return;
   const A = SITE.auth || {};
   const tiers = (SITE.donate || {}).tiers || [];
 
@@ -16,11 +16,12 @@
   if (!A.supabaseUrl || !A.supabaseKey || !window.supabase) {
     root.innerHTML = `<div class="acc-soon">
       <img src="img/logo.png" alt="">
-      <span class="head__label caps">${accRoot ? "Профили игроков" : clRoot ? "Кланы" : "Игроки"}</span>
+      <span class="head__label caps">${accRoot ? "Профили игроков" : clRoot ? "Кланы" : stRoot ? "Статистика" : "Игроки"}</span>
       <h1 class="head__title">Скоро откроется</h1>
       <p class="head__sub">${accRoot
         ? "Скоро здесь можно будет войти по нику и паролю с сервера и увидеть свой профиль: скин, клан, статистику и статус в игре."
         : clRoot ? "Здесь появятся кланы сервера — с флагами, участниками и статистикой из игры."
+        : stRoot ? "Здесь появятся онлайн, TPS, график и топы игроков."
         : "Здесь появится список игроков с профилями, кланами и привилегиями."}</p>
       <div class="tile__actions" style="justify-content:center"><a class="btn btn--primary" href="guide.html">Как начать играть <span class="arr">→</span></a><a class="btn btn--dark" href="index.html">На главную</a></div>
     </div>`;
@@ -622,6 +623,184 @@
         if (error) throw error;
         toast("Страница клана сохранена"); viewClan(T);
       });
+    }
+  }
+
+  /* =========================================================
+     СТАТИСТИКА СЕРВЕРА (stats.html)
+     Данные пишет плагин SiteSync раз в несколько минут: server_stats, online_history.
+     ========================================================= */
+  if (stRoot) {
+    const RANGES = { day: { label: "24 часа", hours: 24, bucket: 0 }, week: { label: "7 дней", hours: 168, bucket: 60 }, month: { label: "30 дней", hours: 720, bucket: 180 } };
+    const ENV = { NORMAL: "Обычный мир", NETHER: "Незер", THE_END: "Энд", CUSTOM: "Свой мир" };
+    const num = v => Number(v || 0).toLocaleString("ru-RU");
+    const dur = ms => { const m = Math.max(0, Math.floor(ms / 60000)), d = Math.floor(m / 1440), h = Math.floor(m % 1440 / 60);
+      return d ? `${d} д ${h} ч` : h ? `${h} ч ${m % 60} мин` : `${m} мин`; };
+    const ago = ts => { const m = Math.round((Date.now() - new Date(ts)) / 60000); return m < 1 ? "только что" : m < 60 ? `${m} мин назад` : `${Math.round(m / 60)} ч назад`; };
+    /* Статус TPS: цвет + значок + подпись (никогда только цветом) */
+    const tpsStatus = t => t == null ? null : t >= 19.5 ? ["good", "●", "Отлично"] : t >= 15 ? ["warn", "▲", "Подтормаживает"] : ["bad", "■", "Лагает"];
+
+    viewStats();
+
+    async function viewStats() {
+      const [{ data: st, error }, totals] = await Promise.all([
+        sb.from("server_stats").select("*").eq("id", 1).maybeSingle(),
+        sb.rpc("server_totals")]);
+      if (error && !/does not exist|Could not find/i.test(error.message)) {
+        stRoot.innerHTML = `<div class="acc-soon"><h1 class="head__title">Не удалось загрузить</h1><p class="head__sub">${esc(errText(error))}</p></div>`; return;
+      }
+      const t = (totals.data && totals.data[0]) || {};
+      const fresh = st && st.running && Date.now() - new Date(st.updated_at) < 15 * 60000;
+      const ts = fresh ? tpsStatus(st.tps) : null;
+      stRoot.innerHTML = `
+        <div class="dash-head">
+          <div><span class="head__label caps">Сервер</span><h1 class="head__title">Статистика</h1>
+            <p class="head__sub">${st ? `Данные с сервера обновляются раз в 5 минут · последнее обновление ${ago(st.updated_at)}.` : "Данные появятся, когда сервер начнёт их отправлять (плагин SiteSync)."}</p></div>
+          <div class="status ${fresh ? "" : "status--off"}"><span class="dot ${fresh ? "on" : "off"}"></span>${fresh ? "Сервер работает" : st ? "Сервер выключен или не отвечает" : "Нет данных"}</div>
+        </div>
+
+        <div class="specs st-specs">
+          <div class="spec"><div class="spec__num">${fresh ? st.online : "—"}<small>/ ${st ? st.max_players : "—"}</small></div><div class="spec__label caps">онлайн сейчас</div></div>
+          <div class="spec"><div class="spec__num">${fresh && st.tps != null ? Number(st.tps).toFixed(1) : "—"}</div><div class="spec__label caps">TPS ${ts ? `<span class="st-badge st-badge--${ts[0]}">${ts[1]} ${ts[2]}</span>` : ""}</div></div>
+          <div class="spec"><div class="spec__num">${fresh && st.mspt != null ? Number(st.mspt).toFixed(1) : "—"}<small>мс</small></div><div class="spec__label caps">время тика</div></div>
+          <div class="spec"><div class="spec__num st-small">${fresh && st.started_at ? dur(Date.now() - new Date(st.started_at)) : "—"}</div><div class="spec__label caps">без перезапуска</div></div>
+        </div>
+
+        <div class="card-box st-chart-card">
+          <div class="st-chart-head">
+            <div><h3>Онлайн</h3><p class="muted small" id="ch-sum">Загружаем…</p></div>
+            <div class="seg seg--inline" id="ch-range">${Object.entries(RANGES).map(([k, r], i) => `<button data-r="${k}" class="${i ? "" : "active"}">${r.label}</button>`).join("")}</div>
+          </div>
+          <div class="st-chart" id="chart"></div>
+          <details class="st-table"><summary>Показать таблицей</summary><div id="ch-table"></div></details>
+        </div>
+
+        <div class="specs st-specs st-totals">
+          <div class="spec"><div class="spec__num">${num(t.players)}</div><div class="spec__label caps">игроков всего</div></div>
+          <div class="spec"><div class="spec__num">${num(t.active_day)}</div><div class="spec__label caps">заходили за сутки</div></div>
+          <div class="spec"><div class="spec__num">${num(t.active_week)}</div><div class="spec__label caps">за неделю</div></div>
+          <div class="spec"><div class="spec__num">${num(Math.floor((t.playtime_minutes || 0) / 60))}<small>ч</small></div><div class="spec__label caps">наиграно всеми</div></div>
+        </div>
+
+        <div class="st-tops" id="tops"></div>
+
+        ${fresh && Array.isArray(st.worlds) && st.worlds.length ? `<div class="card-box"><h3>Миры</h3>
+          <div class="st-worlds"><div class="st-worlds__row st-worlds__head caps"><span>Мир</span><span>Игроков</span><span>Чанков</span><span>Сущностей</span></div>
+          ${st.worlds.map(w => `<div class="st-worlds__row"><span><b>${esc(w.name)}</b><small class="muted">${ENV[w.env] || esc(w.env || "")}</small></span>
+            <span>${num(w.players)}</span><span>${num(w.chunks)}</span><span>${w.entities != null ? num(w.entities) : "—"}</span></div>`).join("")}</div></div>` : ""}`;
+
+      $("ch-range").addEventListener("click", e => { const b = e.target.closest("button"); if (!b) return;
+        $$("#ch-range button").forEach(x => x.classList.toggle("active", x === b)); drawChart(b.dataset.r); });
+      drawChart("day");
+      loadTops();
+    }
+
+    /* ---------- История онлайна (по 1000 строк за запрос — лимит Supabase) ---------- */
+    const histCache = {};
+    async function history(hours) {
+      if (histCache[hours]) return histCache[hours];
+      const since = new Date(Date.now() - hours * 3600000).toISOString(), out = [];
+      for (let from = 0; from < 20000; from += 1000) {
+        const { data, error } = await sb.from("online_history").select("ts,online,tps").gte("ts", since).order("ts").range(from, from + 999);
+        if (error) throw error;
+        out.push(...data);
+        if (data.length < 1000) break;
+      }
+      return (histCache[hours] = out.map(p => ({ t: new Date(p.ts).getTime(), v: p.online })));
+    }
+    /* Для недели и месяца — максимум за интервал (пик важнее среднего) */
+    function bucketize(points, minutes) {
+      if (!minutes) return points;
+      const size = minutes * 60000, map = new Map();
+      for (const p of points) { const k = Math.floor(p.t / size) * size; map.set(k, Math.max(map.get(k) ?? 0, p.v)); }
+      return [...map].map(([t, v]) => ({ t, v })).sort((a, b) => a.t - b.t);
+    }
+
+    async function drawChart(rangeKey) {
+      const r = RANGES[rangeKey], box = $("chart");
+      let pts;
+      try { pts = bucketize(await history(r.hours), r.bucket); }
+      catch (e) { box.innerHTML = `<p class="form__msg">${esc(errText(e))}</p>`; return; }
+      if (pts.length < 2) {
+        $("ch-sum").textContent = "Пока мало данных";
+        box.innerHTML = `<p class="players-empty">График появится, когда сервер пришлёт хотя бы пару точек — это примерно 10 минут после установки SiteSync.</p>`;
+        $("ch-table").innerHTML = ""; return;
+      }
+      const peak = pts.reduce((a, b) => b.v > a.v ? b : a), avg = pts.reduce((s, p) => s + p.v, 0) / pts.length;
+      const fmtT = t => new Date(t).toLocaleString("ru-RU", rangeKey === "day" ? { hour: "2-digit", minute: "2-digit" } : { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+      $("ch-sum").innerHTML = `Пик <b>${peak.v}</b> · ${esc(fmtT(peak.t))} &nbsp;·&nbsp; в среднем <b>${avg.toFixed(1)}</b>`;
+
+      const W = Math.max(320, box.clientWidth || 800), H = 260, L = 34, R = 10, T = 12, B = 26;
+      const t0 = Date.now() - r.hours * 3600000, t1 = Date.now();
+      const step = [1, 2, 5, 10, 20, 25, 50, 100].find(s => Math.ceil(Math.max(peak.v, 4) / s) <= 5) || 100;
+      const yMax = Math.ceil(Math.max(peak.v, 4) / step) * step;
+      const x = t => L + (t - t0) / (t1 - t0) * (W - L - R), y = v => T + (1 - v / yMax) * (H - T - B);
+      /* Разрыв линии, если сервер не присылал данные (выключен) */
+      const gap = (r.bucket || 5) * 60000 * 3, segs = [[]];
+      pts.forEach((p, i) => { if (i && p.t - pts[i - 1].t > gap) segs.push([]); segs[segs.length - 1].push(p); });
+      const line = s => s.map((p, i) => `${i ? "L" : "M"}${x(p.t).toFixed(1)},${y(p.v).toFixed(1)}`).join("");
+      const area = s => s.length < 2 ? "" : `${line(s)}L${x(s[s.length - 1].t).toFixed(1)},${y(0)}L${x(s[0].t).toFixed(1)},${y(0)}Z`;
+      let grid = "";
+      for (let v = 0; v <= yMax; v += step) grid += `<line x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}" class="ch-grid"/><text x="${L - 8}" y="${y(v) + 4}" class="ch-ax" text-anchor="end">${v}</text>`;
+      const tickEvery = rangeKey === "day" ? 3 * 3600000 : rangeKey === "week" ? 86400000 : 5 * 86400000;
+      for (let tt = Math.ceil(t0 / tickEvery) * tickEvery; tt <= t1; tt += tickEvery) {
+        const label = new Date(tt).toLocaleString("ru-RU", rangeKey === "day" ? { hour: "2-digit", minute: "2-digit" } : rangeKey === "week" ? { weekday: "short" } : { day: "numeric", month: "short" });
+        grid += `<text x="${x(tt)}" y="${H - 6}" class="ch-ax" text-anchor="middle">${esc(label)}</text>`;
+      }
+      box.innerHTML = `<svg class="ch" viewBox="0 0 ${W} ${H}" width="100%" height="${H}" role="img" aria-label="Онлайн за ${r.label}: пик ${peak.v}, в среднем ${avg.toFixed(1)}">
+          ${grid}
+          ${segs.map(s => `<path d="${area(s)}" class="ch-area"/><path d="${line(s)}" class="ch-line"/>`).join("")}
+          <g class="ch-hover" id="ch-hover" style="display:none"><line y1="${T}" y2="${H - B}" class="ch-cross"/><circle r="5" class="ch-dot"/></g>
+          <rect x="${L}" y="${T}" width="${W - L - R}" height="${H - T - B}" fill="transparent" id="ch-hit"/>
+        </svg><div class="ch-tip" id="ch-tip" hidden></div>`;
+      const hit = $("ch-hit"), hov = $("ch-hover"), tip = $("ch-tip"), svg = box.querySelector("svg");
+      const move = e => {
+        const rect = svg.getBoundingClientRect(), mx = (e.clientX - rect.left) * W / rect.width;
+        const tt = t0 + (mx - L) / (W - L - R) * (t1 - t0);
+        let best = pts[0]; for (const p of pts) if (Math.abs(p.t - tt) < Math.abs(best.t - tt)) best = p;
+        const px = x(best.t), py = y(best.v);
+        hov.style.display = ""; hov.querySelector("line").setAttribute("x1", px); hov.querySelector("line").setAttribute("x2", px);
+        hov.querySelector("circle").setAttribute("cx", px); hov.querySelector("circle").setAttribute("cy", py);
+        tip.hidden = false; tip.innerHTML = `<b>${best.v}</b> ${plural(best.v, "игрок", "игрока", "игроков")}${r.bucket ? " (пик)" : ""}<span>${esc(fmtT(best.t))}</span>`;
+        const left = px / W * rect.width; tip.style.left = Math.min(rect.width - 150, Math.max(0, left - 70)) + "px"; tip.style.top = Math.max(0, py / H * rect.height - 64) + "px";
+      };
+      hit.addEventListener("pointermove", move);
+      hit.addEventListener("pointerleave", () => { hov.style.display = "none"; tip.hidden = true; });
+
+      /* Таблица: по часам для суток, по дням для недели и месяца */
+      const tb = bucketize(pts, rangeKey === "day" ? 60 : 1440).reverse();
+      $("ch-table").innerHTML = `<div class="st-worlds"><div class="st-worlds__row st-worlds__head caps"><span>${rangeKey === "day" ? "Час" : "День"}</span><span>Пик онлайна</span></div>
+        ${tb.map(p => `<div class="st-worlds__row"><span>${esc(new Date(p.t).toLocaleString("ru-RU", rangeKey === "day" ? { hour: "2-digit", minute: "2-digit" } : { day: "numeric", month: "long" }))}</span><span>${p.v}</span></div>`).join("")}</div>`;
+    }
+
+    /* ---------- Топы игроков и кланов ---------- */
+    async function loadTops() {
+      const top = key => sb.from("profiles").select("nickname,skin,stats").not(`stats->${key}`, "is", null)
+        .order(`stats->${key}`, { ascending: false, nullsFirst: false }).limit(10);
+      const [play, mined, pvp, clans] = await Promise.all([top("playtime"), top("blocks_mined"), top("player_kills"),
+        sb.from("clans").select("name,tag,flag,game,members").order("game->xp", { ascending: false, nullsFirst: false }).limit(10)]);
+      const list = (title, res, val, unit) => {
+        const rows = (res.data || []).map(p => ({ p, v: Number(val(p)) || 0 })).filter(r => r.v > 0).sort((a, b) => b.v - a.v);
+        const max = Math.max(1, ...rows.map(r => r.v));
+        return `<div class="card-box"><h3>${title}</h3>${rows.length ? `<ol class="st-top">${rows.map((r, i) => `
+          <li><span class="st-top__n">${i + 1}</span>
+            <a href="players.html?nick=${encodeURIComponent(r.p.nickname)}"><img src="${ava(r.p, 24)}" alt="" loading="lazy">${esc(r.p.nickname)}</a>
+            <span class="st-top__v">${unit(r.v)}</span>
+            <i class="st-top__bar" style="width:${(r.v / max * 100).toFixed(1)}%"></i></li>`).join("")}</ol>`
+          : `<p class="muted">Пока нет данных — они появятся после первых выходов игроков с сервера.</p>`}</div>`;
+      };
+      const clanRows = (clans.data || []).filter(c => Number((c.game || {}).xp) > 0);
+      const cmax = Math.max(1, ...clanRows.map(c => Number(c.game.xp)));
+      $("tops").innerHTML =
+        list("Больше всех в игре", play, p => p.stats.playtime, v => `${num(Math.floor(v / 60))} ч`) +
+        list("Добыли блоков", mined, p => p.stats.blocks_mined, v => num(v)) +
+        list("Победы в PvP", pvp, p => p.stats.player_kills, v => num(v)) +
+        `<div class="card-box"><h3>Кланы по опыту</h3>${clanRows.length ? `<ol class="st-top">${clanRows.map((c, i) => `
+          <li><span class="st-top__n">${i + 1}</span>
+            <a href="${clanUrl(c)}">${flagSvg(c.flag, "flag--xs")}${clanName(c)}</a>
+            <span class="st-top__v">${num(c.game.xp)} XP</span>
+            <i class="st-top__bar" style="width:${(c.game.xp / cmax * 100).toFixed(1)}%"></i></li>`).join("")}</ol>`
+          : `<p class="muted">Кланы с опытом появятся здесь.</p>`}</div>`;
     }
   }
 })();
