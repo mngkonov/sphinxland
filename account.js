@@ -11,8 +11,6 @@
   const root = accRoot || plRoot || clRoot; if (!root) return;
   const A = SITE.auth || {};
   const tiers = (SITE.donate || {}).tiers || [];
-  const isRecovery = /type=recovery/.test(location.hash);
-  const accountUrl = location.href.split(/[?#]/)[0].replace(/[^/]*$/, "account.html");
 
   /* ---------- Не настроено: показываем заглушку ---------- */
   if (!A.supabaseUrl || !A.supabaseKey || !window.supabase) {
@@ -21,7 +19,7 @@
       <span class="head__label caps">${accRoot ? "Профили игроков" : clRoot ? "Кланы" : "Игроки"}</span>
       <h1 class="head__title">Скоро откроется</h1>
       <p class="head__sub">${accRoot
-        ? "Мы готовим личные профили: свой ник, платформа, клан, привилегия и статус в игре. Регистрация будет по желанию — играть можно и без неё."
+        ? "Скоро здесь можно будет войти по нику и паролю с сервера и увидеть свой профиль: скин, клан, статистику и статус в игре."
         : clRoot ? "Здесь можно будет создать свой клан с флагом и тегом или вступить в чужой."
         : "Здесь появится список игроков с профилями, кланами и привилегиями."}</p>
       <div class="tile__actions" style="justify-content:center"><a class="btn btn--primary" href="guide.html">Как начать играть <span class="arr">→</span></a><a class="btn btn--dark" href="index.html">На главную</a></div>
@@ -169,159 +167,81 @@
      ЛИЧНЫЙ КАБИНЕТ
      ========================================================= */
   if (accRoot) {
-    let recovery = isRecovery;
-    sb.auth.onAuthStateChange(ev => { if (ev === "PASSWORD_RECOVERY" && !recovery) { recovery = true; viewNewPassword(); } });
-
     const msg = (id, text, ok) => { const m = $(id); if (m) { m.textContent = text || ""; m.classList.toggle("ok", !!ok); } };
     const lock = (form, on) => form.querySelectorAll("button, input, textarea, select").forEach(x => x.disabled = on);
 
     async function boot() {
       const { data: { session } } = await sb.auth.getSession();
-      if (recovery && session) return viewNewPassword();
-      if (!session) { try { localStorage.removeItem("sl-nick"); } catch {} return viewAuth("login"); }
+      if (!session) { try { localStorage.removeItem("sl-nick"); localStorage.removeItem("sl-skin"); } catch {} return viewAuth(); }
       const { data: prof, error } = await loadMe(session.user.id);
       if (error) { accRoot.innerHTML = `<div class="acc-soon"><h1 class="head__title">Не удалось загрузить профиль</h1><p class="head__sub">${esc(errText(error))}</p></div>`; return; }
-      if (!prof) return viewCreate(session.user);
+      if (!prof) return viewNoProfile();
       try { localStorage.setItem("sl-nick", prof.nickname); localStorage.setItem("sl-skin", prof.skin || ""); } catch {}
       viewDashboard(session.user, prof);
     }
 
-    /* ---------- Вход / регистрация ---------- */
-    function viewAuth(tab) {
+    /* ---------- Вход: только ник и пароль с сервера ----------
+       Аккаунт на сайте создаёт плагин SiteSync, когда игрок регистрируется на сервере (/register) */
+    function viewAuth() {
       accRoot.innerHTML = `<div class="auth">
         <div class="auth__intro">
-          <span class="head__label caps">Профиль игрока · по желанию</span>
+          <span class="head__label caps">Профиль игрока</span>
           <h1 class="head__title">Твой профиль<br><span class="grad-text">на сайте</span></h1>
-          <p class="head__sub">Регистрация не нужна, чтобы играть. Она нужна, чтобы у тебя было своё место на сайте.</p>
+          <p class="head__sub">Отдельно регистрироваться не нужно: профиль появляется сам, как только ты зарегистрировался на сервере.</p>
+          <ol class="steps-mini">
+            <li><b>Зайди на сервер</b> и зарегистрируйся: <code>/register пароль пароль</code></li>
+            <li><b>Входи сюда</b> по своему нику и тому же паролю</li>
+          </ol>
           <ul class="ticks">
-            <li>Ник, скин, платформа и клан на одной странице</li>
-            <li>Привилегия, дата регистрации и статус «в игре»</li>
+            <li>Твой скин, статистика и статус «в игре»</li>
+            <li>Клан, привилегия и дата регистрации</li>
             <li>Рассказ о себе и Discord, чтобы тебя нашли тиммейты</li>
-            <li>Статистика с сервера — скоро</li>
           </ul>
         </div>
         <div class="auth__card">
-          <div class="seg">
-            <button type="button" data-tab="login" class="${tab === "login" ? "active" : ""}">Вход</button>
-            <button type="button" data-tab="signup" class="${tab === "signup" ? "active" : ""}">Регистрация</button>
-          </div>
-          ${tab === "login" ? `
+          <h2>Вход</h2>
           <form id="f-login" class="form">
-            <label class="field"><span class="field__label">${GAME_DOMAIN ? "Ник или почта" : "Почта"}</span><input class="input" type="text" name="login" autocomplete="username" required>
-              ${GAME_DOMAIN ? `<span class="field__hint">Зарегистрирован на сервере? Входи по нику и паролю из игры — профиль уже ждёт.</span>` : ""}</label>
-            <label class="field"><span class="field__label">Пароль</span><input class="input" type="password" name="password" autocomplete="current-password" required></label>
+            <label class="field"><span class="field__label">Ник</span><input class="input" type="text" name="nick" maxlength="17" autocomplete="username" autocapitalize="off" spellcheck="false" required></label>
+            <label class="field"><span class="field__label">Пароль из игры</span><input class="input" type="password" name="password" autocomplete="current-password" required></label>
             <button class="btn btn--primary btn--block">Войти <span class="arr">→</span></button>
             <p class="form__msg" id="m-login"></p>
-            <button type="button" class="linkbtn" id="forgot">Забыли пароль?</button>
-          </form>` : tab === "signup" ? `
-          <form id="f-signup" class="form">
-            <label class="field"><span class="field__label">Игровой ник</span><input class="input" name="nickname" maxlength="16" placeholder="Steve_2026" required>
-              <span class="field__hint">Тот, под которым ты играешь на сервере.</span></label>
-            <div class="field"><span class="field__label">Платформа</span>
-              <div class="radio-row"><label><input type="radio" name="platform" value="java" checked> Java (ПК)</label><label><input type="radio" name="platform" value="bedrock"> Bedrock (телефон, консоль)</label></div></div>
-            <label class="field"><span class="field__label">Почта</span><input class="input" type="email" name="email" autocomplete="email" required></label>
-            <label class="field"><span class="field__label">Пароль</span><input class="input" type="password" name="password" minlength="8" autocomplete="new-password" required>
-              <span class="field__hint">Минимум 8 символов. Не используй пароль от Minecraft или почты.</span></label>
-            <label class="check"><input type="checkbox" name="agree" required><span>Я прочитал <a href="rules.html" target="_blank">правила сервера</a> и регистрирую профиль на свой ник</span></label>
-            <button class="btn btn--primary btn--block">Создать профиль <span class="arr">→</span></button>
-            <p class="form__msg" id="m-signup"></p>
-          </form>` : `
-          <form id="f-forgot" class="form">
-            <p class="muted">Введи почту — пришлём ссылку для нового пароля.</p>
-            ${GAME_DOMAIN ? `<p class="note">Входишь по нику? Пароль на сайте — тот же, что в игре. Смени его на сервере командой <b>/changepassword</b>, и он обновится здесь сам.</p>` : ""}
-            <label class="field"><span class="field__label">Почта</span><input class="input" type="email" name="email" autocomplete="email" required></label>
-            <button class="btn btn--primary btn--block">Отправить ссылку</button>
-            <p class="form__msg" id="m-forgot"></p>
-            <button type="button" class="linkbtn" data-tab="login">← Назад ко входу</button>
-          </form>`}
+          </form>
+          <details class="help-mini">
+            <summary>Не получается войти?</summary>
+            <ul>
+              <li>Пароль — тот же, что ты вводишь в игре после <code>/login</code>.</li>
+              <li>Регистрировался на сервере давно? Зайди в игру и введи <code>/login</code> — через пару секунд пароль заработает и здесь.</li>
+              <li>Забыл пароль или хочешь сменить — <code>/changepassword старый новый</code> в игре, на сайте он обновится сам.</li>
+              <li>Пароль короче 6 символов сайт не принимает — смени его в игре на более длинный.</li>
+            </ul>
+          </details>
         </div>
       </div>`;
-      accRoot.querySelectorAll("[data-tab]").forEach(b => b.addEventListener("click", () => viewAuth(b.dataset.tab)));
-      $("forgot")?.addEventListener("click", () => viewAuth("forgot"));
 
-      $("f-login")?.addEventListener("submit", async e => {
+      $("f-login").addEventListener("submit", async e => {
         e.preventDefault(); const f = e.target; msg("m-login", "");
-        const login = f.login.value.trim(), byNick = !login.includes("@");
-        if (byNick && !GAME_DOMAIN) return msg("m-login", "Введи почту, с которой регистрировался.");
+        const nick = f.nick.value.trim();
+        if (!GAME_DOMAIN) return msg("m-login", "Вход на сайт ещё не настроен. Загляни позже.");
+        if (!NICK_RE.test(nick)) return msg("m-login", "Введи ник, под которым играешь на сервере.");
         lock(f, true);
-        const { error } = await sb.auth.signInWithPassword({ email: byNick ? nickEmail(login) : login, password: f.password.value });
+        const { error } = await sb.auth.signInWithPassword({ email: nickEmail(nick), password: f.password.value });
         lock(f, false);
-        if (error) return msg("m-login", byNick && /Invalid login credentials/i.test(error.message)
-          ? "Неверный ник или пароль. Пароль — тот же, что в игре. Если регистрировался на сервере давно, зайди в игру и введи /login — после этого пароль заработает и здесь."
+        if (error) return msg("m-login", /Invalid login credentials/i.test(error.message)
+          ? "Неверный ник или пароль. Пароль — тот же, что в игре. Регистрировался давно? Введи в игре /login и попробуй снова через пару секунд."
           : errText(error));
         boot();
       });
-
-      $("f-signup")?.addEventListener("submit", async e => {
-        e.preventDefault(); const f = e.target; msg("m-signup", "");
-        const nickname = f.nickname.value.trim(), platform = f.platform.value;
-        if (!NICK_RE.test(nickname)) return msg("m-signup", "Ник: 3–16 символов — латиница, цифры, _ и точка.");
-        lock(f, true);
-        try {
-          const { data: free, error: e1 } = await sb.rpc("nickname_available", { n: nickname });
-          if (e1) throw e1;
-          if (!free) { lock(f, false); return msg("m-signup", GAME_DOMAIN ? "Этот ник уже есть на сайте. Если ты играешь под ним на сервере — открой вкладку «Вход» и войди по нику и игровому паролю." : "Этот ник уже занят. Если это твой ник — напиши администрации в Discord."); }
-          const { data, error } = await sb.auth.signUp({ email: f.email.value.trim(), password: f.password.value,
-            options: { data: { nickname, platform }, emailRedirectTo: accountUrl } });
-          if (error) throw error;
-          if (data.session) return boot();
-          accRoot.querySelector(".auth__card").innerHTML = `<div class="done">
-            <h2>Проверь почту</h2>
-            <p class="muted">Мы отправили письмо на <b>${esc(f.email.value.trim())}</b>. Нажми ссылку в нём — и профиль <b>${esc(nickname)}</b> будет готов.</p>
-            <p class="muted small">Письма нет? Загляни в «Спам» или подожди пару минут.</p></div>`;
-        } catch (err) { lock(f, false); msg("m-signup", errText(err)); }
-      });
-
-      $("f-forgot")?.addEventListener("submit", async e => {
-        e.preventDefault(); const f = e.target; lock(f, true);
-        const { error } = await sb.auth.resetPasswordForEmail(f.email.value.trim(), { redirectTo: accountUrl });
-        lock(f, false);
-        error ? msg("m-forgot", errText(error)) : msg("m-forgot", "Готово! Проверь почту и перейди по ссылке.", true);
-      });
     }
 
-    /* ---------- Новый пароль (по ссылке из письма) ---------- */
-    function viewNewPassword() {
-      accRoot.innerHTML = `<div class="auth auth--single"><div class="auth__card">
-        <h2>Новый пароль</h2>
-        <form id="f-newpass" class="form">
-          <label class="field"><span class="field__label">Пароль</span><input class="input" type="password" name="password" minlength="8" autocomplete="new-password" required></label>
-          <button class="btn btn--primary btn--block">Сохранить</button>
-          <p class="form__msg" id="m-newpass"></p>
-        </form></div></div>`;
-      $("f-newpass").addEventListener("submit", async e => {
-        e.preventDefault(); const f = e.target; lock(f, true);
-        const { error } = await sb.auth.updateUser({ password: f.password.value });
-        lock(f, false);
-        if (error) return msg("m-newpass", errText(error));
-        recovery = false; history.replaceState(null, "", location.pathname); toast("Пароль обновлён"); boot();
-      });
-    }
-
-    /* ---------- Создание профиля (после подтверждения почты) ---------- */
-    function viewCreate(user) {
-      const md = user.user_metadata || {};
-      accRoot.innerHTML = `<div class="auth auth--single"><div class="auth__card">
-        <span class="head__label caps">Последний шаг</span>
-        <h2>Создай профиль</h2>
-        <form id="f-create" class="form">
-          <label class="field"><span class="field__label">Игровой ник</span><input class="input" name="nickname" maxlength="16" value="${esc(md.nickname || "")}" required></label>
-          <div class="field"><span class="field__label">Платформа</span>
-            <div class="radio-row"><label><input type="radio" name="platform" value="java" ${md.platform !== "bedrock" ? "checked" : ""}> Java</label><label><input type="radio" name="platform" value="bedrock" ${md.platform === "bedrock" ? "checked" : ""}> Bedrock</label></div></div>
-          <button class="btn btn--primary btn--block">Готово <span class="arr">→</span></button>
-          <p class="form__msg" id="m-create"></p>
-          <button type="button" class="linkbtn" id="logout">Выйти</button>
-        </form></div></div>`;
+    /* ---------- Аккаунт есть, а профиля нет (обычно — профиль удалили вручную) ---------- */
+    function viewNoProfile() {
+      accRoot.innerHTML = `<div class="acc-soon">
+        <span class="head__label caps">Профиль</span>
+        <h1 class="head__title">Профиль ещё не готов</h1>
+        <p class="head__sub">Профиль создаётся сервером. Зайди в игру и введи <b>/login</b> — через несколько секунд обнови эту страницу.</p>
+        <div class="tile__actions" style="justify-content:center"><button class="btn btn--dark" id="logout">Выйти</button></div>
+      </div>`;
       $("logout").addEventListener("click", logout);
-      $("f-create").addEventListener("submit", async e => {
-        e.preventDefault(); const f = e.target; const nickname = f.nickname.value.trim();
-        if (!NICK_RE.test(nickname)) return msg("m-create", "Ник: 3–16 символов — латиница, цифры, _ и точка.");
-        lock(f, true);
-        const { error } = await sb.from("profiles").insert({ id: user.id, nickname, platform: f.platform.value });
-        lock(f, false);
-        if (error) return msg("m-create", errText(error));
-        toast("Профиль создан!"); boot();
-      });
     }
 
     /* ---------- Кабинет ---------- */
@@ -527,7 +447,7 @@
       <p class="head__sub">${esc(errText(e))}</p><div class="tile__actions" style="justify-content:center"><a class="btn btn--dark" href="clans.html">← Все кланы</a></div></div>`; };
     const needLogin = text => { clRoot.innerHTML = `<div class="acc-soon"><img src="img/logo.png" alt="">
       <span class="head__label caps">Кланы</span><h1 class="head__title">Нужен профиль</h1><p class="head__sub">${esc(text)}</p>
-      <div class="tile__actions" style="justify-content:center"><a class="btn btn--primary" href="account.html">Войти или зарегистрироваться <span class="arr">→</span></a><a class="btn btn--dark" href="clans.html">Все кланы</a></div></div>`; };
+      <div class="tile__actions" style="justify-content:center"><a class="btn btn--primary" href="account.html">Войти по нику <span class="arr">→</span></a><a class="btn btn--dark" href="clans.html">Все кланы</a></div></div>`; };
 
     qs.has("new") ? viewNew() : qs.get("tag") ? viewClan(qs.get("tag")) : viewClans();
 
@@ -540,7 +460,7 @@
       const all = data || [];
       let q = "", filter = "all";
       const myAction = !user ? `<a class="btn btn--primary" href="account.html">Войти и создать клан</a>`
-        : !me ? `<a class="btn btn--primary" href="account.html">Создать профиль</a>`
+        : !me ? `<a class="btn btn--primary" href="account.html">Мой профиль</a>`
         : me.clans ? `<a class="btn btn--ghost" href="${clanUrl(me.clans)}">${flagSvg(me.clans.flag, "flag--xs")} Мой клан [${esc(me.clans.tag)}]</a>`
         : `<a class="btn btn--primary" href="clans.html?new">Создать клан <span class="arr">→</span></a>`;
       clRoot.innerHTML = `
@@ -576,7 +496,7 @@
     /* ---------- Создание клана ---------- */
     async function viewNew() {
       const { user, me } = await currentUser();
-      if (!user || !me) return needLogin(!user ? "Чтобы создать клан, войди в свой профиль игрока." : "Сначала создай профиль игрока — клан привяжется к нему.");
+      if (!user || !me) return needLogin(!user ? "Чтобы создать клан, войди на сайт по нику и паролю из игры." : "Профиль ещё не готов: зайди на сервер и введи /login, потом обнови страницу.");
       if (me.clans) { location.replace(clanUrl(me.clans)); return; }
       myNick = me.nickname;
       clRoot.innerHTML = `${backLink}
@@ -707,7 +627,7 @@
       }
       document.title = `[${c.tag}] ${c.name} — Кланы Сфинксляндии`;
       const action = !user ? `<a class="btn btn--primary" href="account.html">Войти, чтобы вступить</a>`
-        : !me ? `<a class="btn btn--primary" href="account.html">Создать профиль, чтобы вступить</a>`
+        : !me ? `<a class="btn btn--primary" href="account.html">Мой профиль</a>`
         : mine ? `<span class="chip chip--ok">Ты в клане · ${ROLE_NAMES[role]}</span><button class="btn btn--dark" data-act="leave">Покинуть клан</button>`
         : me.clan_id ? `<p class="muted">Ты уже в клане ${me.clans ? `<a class="clan-link" href="${clanUrl(me.clans)}">[${esc(me.clans.tag)}] ${esc(me.clans.name)}</a>` : ""}. Чтобы вступить сюда, сначала выйди из него.</p>`
         : c.open ? `<button class="btn btn--primary" data-act="join">Вступить в клан <span class="arr">→</span></button>`

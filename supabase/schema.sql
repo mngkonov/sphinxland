@@ -83,7 +83,7 @@ drop policy if exists "profiles_insert" on public.profiles;
 drop policy if exists "profiles_update" on public.profiles;
 drop policy if exists "profiles_delete" on public.profiles;
 create policy "profiles_read"   on public.profiles for select using (public or auth.uid() = id);
-create policy "profiles_insert" on public.profiles for insert to authenticated with check (auth.uid() = id);
+-- profiles_insert больше не создаётся: вставлять профили может только сервер (секретный ключ)
 create policy "profiles_update" on public.profiles for update to authenticated using (auth.uid() = id) with check (auth.uid() = id);
 create policy "profiles_delete" on public.profiles for delete to authenticated using (auth.uid() = id);
 
@@ -96,7 +96,8 @@ create policy "requests_read_own" on public.clan_requests for select to authenti
 -- Игрок правит только «свои» поля профиля. Клан, привилегия, подтверждение и статистика — нельзя.
 revoke all on public.profiles from anon, authenticated;
 grant select on public.profiles to anon, authenticated;
-grant insert (id, nickname, platform, bio, discord, public) on public.profiles to authenticated;
+-- Профили создаёт только сервер (плагин SiteSync): регистрации на сайте нет, занять чужой ник нельзя
+-- grant insert … — намеренно не выдаётся
 grant update (nickname, platform, bio, discord, public)     on public.profiles to authenticated;
 grant delete on public.profiles to authenticated;
 

@@ -696,3 +696,13 @@ a.clan-row:hover { border-color: var(--yellow); }
   .cl-grid { grid-template-columns: 1fr; }
   .member-row__chips { grid-column: 2 / -1; justify-content: flex-start; }
 }
+
+/* ---------- Вход по нику ---------- */
+.steps-mini { list-style: none; counter-reset: s; display: grid; gap: 10px; margin-top: 24px; }
+.steps-mini li { counter-increment: s; position: relative; padding-left: 40px; min-height: 28px; padding-top: 2px; color: rgba(243,239,228,.85); }
+.steps-mini li::before { content: counter(s); position: absolute; left: 0; top: 0; width: 28px; height: 28px; display: grid; place-items: center; background: var(--yellow); color: #140f00; font-family: var(--pixel); font-size: 15px; }
+.steps-mini code, .help-mini code { font-family: var(--mono); font-size: 13px; color: var(--yellow); background: var(--bg-3); padding: 1px 6px; }
+.help-mini { margin-top: 18px; border-top: 1px solid var(--line); padding-top: 14px; }
+.help-mini summary { cursor: pointer; color: var(--muted); font-size: 14px; }
+.help-mini summary:hover { color: var(--text); }
+.help-mini ul { margin-top: 12px; padding-left: 18px; display: grid; gap: 8px; color: var(--muted); font-size: 14px; }
