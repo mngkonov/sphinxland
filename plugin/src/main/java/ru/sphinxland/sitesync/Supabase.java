@@ -119,15 +119,19 @@ final class Supabase {
         return call("POST", "/auth/v1/admin/users", b).getAsJsonObject().get("id").getAsString();
     }
 
-    /** id аккаунта по почте или null (нужно, если прошлая попытка создала аккаунт, но не профиль). */
-    String findUserIdByEmail(String email) throws ApiException {
+    record AuthUser(String id, String nickname) {}
+
+    /** Аккаунт по почте (с ником из метаданных) или null — нужно, если прошлая попытка создала аккаунт, но не профиль. */
+    AuthUser findUserByEmail(String email) throws ApiException {
         for (int page = 1; page <= 100; page++) {
             JsonObject r = call("GET", "/auth/v1/admin/users?page=" + page + "&per_page=500", null).getAsJsonObject();
             JsonArray users = r.getAsJsonArray("users");
             if (users == null || users.isEmpty()) return null;
             for (JsonElement u : users) {
                 JsonObject o = u.getAsJsonObject();
-                if (email.equalsIgnoreCase(str(o, "email"))) return str(o, "id");
+                if (!email.equalsIgnoreCase(str(o, "email"))) continue;
+                JsonObject md = o.has("user_metadata") && o.get("user_metadata").isJsonObject() ? o.getAsJsonObject("user_metadata") : new JsonObject();
+                return new AuthUser(str(o, "id"), str(md, "nickname"));
             }
             if (users.size() < 500) return null;
         }

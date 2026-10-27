@@ -11,6 +11,7 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerCommandPreprocessEvent;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.bukkit.scheduler.BukkitTask;
 
 import java.io.File;
 import java.security.SecureRandom;
@@ -43,7 +44,7 @@ import java.util.regex.Pattern;
 public final class SiteSync extends JavaPlugin implements Listener {
 
     /** Те же правила ника, что и на сайте (с префиксом Floodgate). */
-    private static final Pattern NICK = Pattern.compile("^[.*]?[A-Za-z0-9_][A-Za-z0-9_ ]{1,14}[A-Za-z0-9_]$");
+    private static final Pattern NICK = Pattern.compile("^[.*]?[A-Za-z0-9_.][A-Za-z0-9_. ]{1,14}[A-Za-z0-9_.]$");
     private static final Set<String> REGISTER = Set.of("register", "reg");
     private static final Set<String> LOGIN = Set.of("login", "l", "log");
     private static final Set<String> CHANGE = Set.of("changepassword", "cp");
@@ -51,9 +52,12 @@ public final class SiteSync extends JavaPlugin implements Listener {
 
     record Result(String userId, boolean created) {}
 
-    private Supabase sb;
-    private AuthMeReader authme;
-    private String domain, prefix, siteUrl, msgReady, msgWeak;
+    /* Настройки перечитываются командой /sitesync reload — без перезапуска сервера */
+    private volatile Supabase sb;
+    private volatile AuthMeReader authme;
+    private volatile String domain, prefix, siteUrl, msgReady, msgWeak;
+    private volatile boolean ready;
+    private BukkitTask timer;
     private final Set<String> conflicts = ConcurrentHashMap.newKeySet();
     private final Set<String> skipped = ConcurrentHashMap.newKeySet();
     private final AtomicBoolean syncing = new AtomicBoolean();
@@ -63,13 +67,31 @@ public final class SiteSync extends JavaPlugin implements Listener {
     @Override
     public void onEnable() {
         saveDefaultConfig();
+        getServer().getPluginManager().registerEvents(this, this);
+        loadSettings();
+    }
+
+    /**
+     * Читает config.yml и (пере)запускает синхронизацию. Без ключа плагин не выключается,
+     * а ждёт настройки: впиши ключ и введи /sitesync reload.
+     * @return текст для того, кто перезагрузил
+     */
+    private String loadSettings() {
+        reloadConfig();
         FileConfiguration c = getConfig();
+        if (timer != null) {
+            timer.cancel();
+            timer = null;
+        }
+        conflicts.clear();
+        skipped.clear();
         String url = c.getString("supabase.url", "").trim();
         String key = c.getString("supabase.service-key", "").trim();
         if (url.isEmpty() || key.isEmpty() || key.startsWith("sb_publishable_")) {
-            getLogger().severe("Заполни supabase.url и supabase.service-key (СЕКРЕТНЫЙ ключ) в plugins/SiteSync/config.yml и перезапусти сервер.");
-            getServer().getPluginManager().disablePlugin(this);
-            return;
+            ready = false;
+            String m = "Нет настроек: впиши supabase.url и supabase.service-key (СЕКРЕТНЫЙ ключ) в plugins/SiteSync/config.yml и введи /sitesync reload.";
+            getLogger().warning(m);
+            return m;
         }
         sb = new Supabase(url, key);
         domain = c.getString("site.email-domain", "players.mngkonov.github.io").trim().toLowerCase(Locale.ROOT);
@@ -85,16 +107,19 @@ public final class SiteSync extends JavaPlugin implements Listener {
                 c.getString("authme.columns.name", "username"), c.getString("authme.columns.realname", "realname"),
                 c.getString("authme.columns.regdate", "regdate"), c.getString("authme.columns.lastlogin", "lastlogin"));
 
-        getServer().getPluginManager().registerEvents(this, this);
         long every = Math.max(1, c.getLong("sync-interval-minutes", 10)) * 60L * 20L;
-        getServer().getScheduler().runTaskTimerAsynchronously(this, this::fullSync, 20L * 15, every);
-        getLogger().info("SiteSync запущен: база AuthMe — " + db.getPath() + ", синхронизация каждые " + every / 1200 + " мин.");
+        ready = true;
+        timer = getServer().getScheduler().runTaskTimerAsynchronously(this, this::fullSync, 20L * 15, every);
+        String m = "Работает: база AuthMe — " + db.getPath() + ", синхронизация каждые " + every / 1200 + " мин. (первая — через 15 сек.)";
+        getLogger().info(m);
+        return m;
     }
 
     /* ---------- Пароль из команд AuthMe ---------- */
 
     @EventHandler(priority = EventPriority.MONITOR)
     public void onCommand(PlayerCommandPreprocessEvent e) {
+        if (!ready) return;
         String[] a = e.getMessage().trim().split("\\s+");
         if (a.length < 2 || a[0].length() < 2) return;
         String cmd = a[0].substring(1).toLowerCase(Locale.ROOT);
@@ -167,7 +192,7 @@ public final class SiteSync extends JavaPlugin implements Listener {
         if (conflicts.contains(key) || skipped.contains(key)) return new Result(null, false);
         if (!NICK.matcher(nick).matches()) {
             skipped.add(key);
-            getLogger().info("Ник «" + nick + "» не подходит под правила сайта (3–16 символов: латиница, цифры, _) — пропускаю.");
+            getLogger().info("Ник «" + nick + "» не подходит под правила сайта (3–16 символов: латиница, цифры, _ и точка) — пропускаю.");
             return new Result(null, false);
         }
         Supabase.Profile existing = sb.findProfile(nick);
@@ -180,20 +205,32 @@ public final class SiteSync extends JavaPlugin implements Listener {
         String platform = isBedrock(nick) ? "bedrock" : "java";
         String email = email(nick);
         String userId;
+        boolean fresh = true;
         try {
             userId = sb.createUser(email, randomPassword(), nick, platform);
         } catch (Supabase.ApiException e) {
             String m = e.getMessage().toLowerCase(Locale.ROOT);
             if (e.status != 422 || !(m.contains("already") || m.contains("exists"))) throw e;
-            userId = sb.findUserIdByEmail(email); // аккаунт остался от прошлой неудачной попытки
-            if (userId == null) throw e;
+            // Почта уже занята. Это наш же аккаунт от прошлой неудачной попытки — или другой игрок,
+            // чей ник отличается только точкой/пробелом («a.b» и «a b» дают одну почту). Чужой не трогаем.
+            Supabase.AuthUser old = sb.findUserByEmail(email);
+            if (old == null) throw e;
+            if (old.nickname() == null || !old.nickname().equalsIgnoreCase(nick)) {
+                conflicts.add(key);
+                getLogger().warning("Для «" + nick + "» служебная почта совпала с аккаунтом «" + old.nickname()
+                        + "» (ники отличаются только точкой или пробелом). Аккаунт не создаю — напиши разработчику сайта.");
+                return new Result(null, false);
+            }
+            userId = old.id();
+            fresh = false;
         }
         try {
             sb.insertProfile(userId, nick, platform, iso(regdate), iso(lastlogin));
         } catch (Supabase.ApiException e) {
             if (e.status == 409) {
                 conflicts.add(key);
-                try { sb.deleteUser(userId); } catch (Supabase.ApiException ignored) { }
+                // удаляем только аккаунт, который сами только что создали
+                if (fresh) try { sb.deleteUser(userId); } catch (Supabase.ApiException ignored) { }
                 getLogger().warning("Ник «" + nick + "» успели занять на сайте — аккаунт из игры не создан.");
                 return new Result(null, false);
             }
@@ -227,7 +264,7 @@ public final class SiteSync extends JavaPlugin implements Listener {
     /* ---------- Синхронизация базы AuthMe ---------- */
 
     private void fullSync() {
-        if (!syncing.compareAndSet(false, true)) return;
+        if (!ready || !syncing.compareAndSet(false, true)) return;
         int created = 0, updated = 0, failed = 0;
         try {
             List<AuthMeReader.Row> rows = authme.readAll();
@@ -261,6 +298,14 @@ public final class SiteSync extends JavaPlugin implements Listener {
 
     @Override
     public boolean onCommand(CommandSender s, Command command, String label, String[] args) {
+        if (args.length > 0 && args[0].equalsIgnoreCase("reload")) {
+            s.sendMessage(color("&6[SiteSync] &f" + loadSettings()));
+            return true;
+        }
+        if (!ready) {
+            s.sendMessage(color("&6[SiteSync] &cНе настроен. &fВпиши ключ в plugins/SiteSync/config.yml и введи &e/sitesync reload"));
+            return true;
+        }
         if (args.length > 0 && args[0].equalsIgnoreCase("sync")) {
             s.sendMessage(color("&6[SiteSync] &fЗапускаю синхронизацию…"));
             getServer().getScheduler().runTaskAsynchronously(this, () -> {

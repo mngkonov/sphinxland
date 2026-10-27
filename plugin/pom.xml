@@ -6,7 +6,7 @@
 
   <groupId>ru.sphinxland</groupId>
   <artifactId>sitesync</artifactId>
-  <version>1.0.0</version>
+  <version>1.1.0</version>
   <name>SiteSync</name>
   <description>Синхронизация аккаунтов AuthMe с сайтом Сфинксляндии (Supabase)</description>
 

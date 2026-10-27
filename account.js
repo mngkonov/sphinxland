@@ -34,7 +34,7 @@
   const sb = window.supabase.createClient(sbUrl, String(A.supabaseKey).trim());
 
   /* ---------- Общие помощники ---------- */
-  const NICK_RE = /^[.*]?[A-Za-z0-9_](?:[A-Za-z0-9_ ]{1,14})[A-Za-z0-9_]$/;
+  const NICK_RE = /^[.*]?[A-Za-z0-9_.](?:[A-Za-z0-9_. ]{1,14})[A-Za-z0-9_.]$/;
   /* У профиля клан свой (clan_id), но кланы связаны с профилями ещё и через заявки — указываем связь явно */
   const CLAN_EMBED = "clans:clans!profiles_clan_id_fkey(id,name,tag,flag)";
   const REQ_CLAN_EMBED = "clans(id,name,tag,flag)";
@@ -90,7 +90,7 @@
     if (/clans_name_check/.test(m)) return "Название клана — от 3 до 24 символов.";
     if (/clans_description_check/.test(m)) return "Описание клана — до 600 символов.";
     if (/duplicate key|23505/i.test(m) || (e && e.code === "23505")) return "Этот ник уже занят другим игроком.";
-    if (/check constraint|23514/i.test(m) || (e && e.code === "23514")) return "Проверь поля: ник 3–16 символов (латиница, цифры, _), описание до 300 символов.";
+    if (/check constraint|23514/i.test(m) || (e && e.code === "23514")) return "Проверь поля: ник 3–16 символов (латиница, цифры, _ и точка), описание до 300 символов.";
     if (e && e.code === "P0001") return m; /* понятные сообщения из функций базы */
     if (/clan_id|clan_role|clan_member_list|create_clan|schema cache/i.test(m)) return "Кланы ещё не подключены в базе: администратору нужно заново запустить supabase/schema.sql.";
     if (/Failed to fetch|NetworkError/i.test(m)) return "Нет связи с сервером профилей. Проверь интернет.";
@@ -250,7 +250,7 @@
       $("f-signup")?.addEventListener("submit", async e => {
         e.preventDefault(); const f = e.target; msg("m-signup", "");
         const nickname = f.nickname.value.trim(), platform = f.platform.value;
-        if (!NICK_RE.test(nickname)) return msg("m-signup", "Ник: 3–16 символов, латиница, цифры и _ (для Bedrock можно пробел внутри).");
+        if (!NICK_RE.test(nickname)) return msg("m-signup", "Ник: 3–16 символов — латиница, цифры, _ и точка.");
         lock(f, true);
         try {
           const { data: free, error: e1 } = await sb.rpc("nickname_available", { n: nickname });
@@ -310,7 +310,7 @@
       $("logout").addEventListener("click", logout);
       $("f-create").addEventListener("submit", async e => {
         e.preventDefault(); const f = e.target; const nickname = f.nickname.value.trim();
-        if (!NICK_RE.test(nickname)) return msg("m-create", "Ник: 3–16 символов, латиница, цифры и _.");
+        if (!NICK_RE.test(nickname)) return msg("m-create", "Ник: 3–16 символов — латиница, цифры, _ и точка.");
         lock(f, true);
         const { error } = await sb.from("profiles").insert({ id: user.id, nickname, platform: f.platform.value });
         lock(f, false);
@@ -403,7 +403,7 @@
         e.preventDefault(); const f = e.target; msg("m-profile", "");
         const upd = { nickname: f.nickname.value.trim(), platform: f.platform.value,
           discord: f.discord.value.trim() || null, bio: f.bio.value.trim() || null, public: f.public.checked };
-        if (!NICK_RE.test(upd.nickname)) return msg("m-profile", "Ник: 3–16 символов, латиница, цифры и _.");
+        if (!NICK_RE.test(upd.nickname)) return msg("m-profile", "Ник: 3–16 символов — латиница, цифры, _ и точка.");
         lock(f, true);
         const { error: e1 } = await sb.from("profiles").update(upd).eq("id", user.id);
         const { data, error } = e1 ? { error: e1 } : await loadMe(user.id);

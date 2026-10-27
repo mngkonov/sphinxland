@@ -23,10 +23,11 @@ create table if not exists public.profiles (
 );
 create unique index if not exists profiles_nickname_key on public.profiles (lower(nickname));
 
--- Ник: 3–16 символов; у Bedrock-игроков (Floodgate) впереди может стоять префикс «.» или «*»
+-- Ник: 3–16 символов (латиница, цифры, _ и точка — у пиратов бывают ники с точкой);
+-- у Bedrock-игроков (Floodgate) впереди может стоять префикс «.» или «*»
 alter table public.profiles drop constraint if exists profiles_nickname_check;
 alter table public.profiles add constraint profiles_nickname_check
-  check (nickname ~ '^[.*]?[A-Za-z0-9_][A-Za-z0-9_ ]{1,14}[A-Za-z0-9_]$');
+  check (nickname ~ '^[.*]?[A-Za-z0-9_.][A-Za-z0-9_. ]{1,14}[A-Za-z0-9_.]$');
 
 -- Откуда профиль: 'site' — регистрация по почте, 'game' — создан плагином SiteSync из AuthMe
 alter table public.profiles add column if not exists source text not null default 'site';

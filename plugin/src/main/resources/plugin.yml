@@ -1,5 +1,5 @@
 name: SiteSync
-version: 1.0.0
+version: 1.1.0
 main: ru.sphinxland.sitesync.SiteSync
 api-version: '1.21'
 depend: [AuthMe]
@@ -8,7 +8,7 @@ description: Аккаунты AuthMe автоматически появляют
 commands:
   sitesync:
     description: Статус и ручная синхронизация с сайтом
-    usage: /sitesync [status|sync]
+    usage: /sitesync [status|sync|reload]
     permission: sitesync.admin
 permissions:
   sitesync.admin:
