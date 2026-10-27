@@ -24,12 +24,15 @@ import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.Base64;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Pattern;
 
@@ -61,6 +64,7 @@ public final class SiteSync extends JavaPlugin implements Listener {
     /* Настройки перечитываются командой /sitesync reload — без перезапуска сервера */
     private volatile Supabase sb;
     private volatile AuthMeReader authme;
+    private volatile ApexClans apex; // null — синхронизация кланов выключена
     private volatile String domain, prefix, siteUrl, msgReady, msgWeak;
     private volatile boolean ready;
     private BukkitTask timer;
@@ -71,6 +75,7 @@ public final class SiteSync extends JavaPlugin implements Listener {
     private final AtomicBoolean syncing = new AtomicBoolean();
     private final SecureRandom random = new SecureRandom();
     private volatile String lastSync = "ещё не было";
+    private volatile String lastClans = "ещё не было";
 
     @Override
     public void onEnable() {
@@ -114,6 +119,9 @@ public final class SiteSync extends JavaPlugin implements Listener {
         authme = new AuthMeReader(db, c.getString("authme.table", "authme"),
                 c.getString("authme.columns.name", "username"), c.getString("authme.columns.realname", "realname"),
                 c.getString("authme.columns.regdate", "regdate"), c.getString("authme.columns.lastlogin", "lastlogin"));
+        File apexDir = new File(c.getString("apexclan.folder", "plugins/ApexClan"));
+        if (!apexDir.isAbsolute()) apexDir = new File(getDataFolder().getAbsoluteFile().getParentFile().getParentFile(), apexDir.getPath());
+        apex = c.getBoolean("apexclan.enabled", true) ? new ApexClans(apexDir) : null;
 
         long every = Math.max(1, c.getLong("sync-interval-minutes", 10)) * 60L * 20L;
         ready = true;
@@ -383,12 +391,92 @@ public final class SiteSync extends JavaPlugin implements Listener {
             lastSync = TIME.format(Instant.now()) + " — игроков в AuthMe: " + rows.size() + ", новых профилей: " + created
                     + ", обновлено: " + updated + (failed > 0 ? ", ошибок: " + failed : "");
             if (created > 0 || updated > 0 || failed > 0) getLogger().info("Синхронизация: " + lastSync);
+            if (apex != null) syncClans(rows, game);
             pushOnlinePlayers();
         } catch (Exception e) {
             lastSync = TIME.format(Instant.now()) + " — ошибка: " + e.getMessage();
             getLogger().warning("Синхронизация не удалась: " + e.getMessage());
         } finally {
             syncing.set(false);
+        }
+    }
+
+    /* ---------- Кланы из ApexClan ---------- */
+
+    /** Флаг нового клана на сайте, пока лидер не нарисовал свой: жёлтое полотно с чёрной и оранжевой полосой. */
+    private static final String DEFAULT_FLAG = "7".repeat(64) + "3".repeat(8) + "6".repeat(24);
+
+    record Want(String clanId, String role, String joined) {}
+
+    /**
+     * Переносит кланы ApexClan на сайт: создаёт и обновляет кланы, удаляет распущенные,
+     * проставляет игрокам клан и роль (лидер → владелец, модератор → офицер).
+     * Флаг и описание, которые сделали на сайте, не трогает.
+     */
+    private void syncClans(List<AuthMeReader.Row> rows, Map<String, Supabase.Profile> game) {
+        try {
+            List<ApexClans.Clan> clans = apex.readAll();
+            // UUID → ник: у игроков без лицензии UUID считается из ника, остальных (Bedrock и др.) спрашиваем у сервера
+            Map<UUID, String> names = new HashMap<>();
+            for (AuthMeReader.Row r : rows) names.put(ApexClans.offlineUuid(r.nick()), r.nick());
+            Set<UUID> unknown = new HashSet<>();
+            for (ApexClans.Clan c : clans) for (ApexClans.Member m : c.members()) if (!names.containsKey(m.uuid())) unknown.add(m.uuid());
+            if (!unknown.isEmpty()) {
+                Map<UUID, String> resolved = getServer().getScheduler().callSyncMethod(this, () -> {
+                    Map<UUID, String> out = new HashMap<>();
+                    for (UUID u : unknown) {
+                        String n = getServer().getOfflinePlayer(u).getName();
+                        if (n != null) out.put(u, n);
+                    }
+                    return out;
+                }).get(10, TimeUnit.SECONDS);
+                names.putAll(resolved);
+            }
+
+            Map<String, String> existing = sb.gameClans();
+            Map<String, Want> want = new HashMap<>(); // id профиля → нужный клан
+            Set<String> seen = new HashSet<>();
+            int created = 0;
+            for (ApexClans.Clan c : clans) {
+                String key = c.name().toLowerCase(Locale.ROOT);
+                String id = existing.get(key);
+                if (id == null) {
+                    id = sb.insertClan(c.name(), c.open(), c.members().size(), ApexClans.iso(c.created()), c.game(), DEFAULT_FLAG);
+                    created++;
+                } else {
+                    sb.updateClan(id, c.name(), c.open(), c.members().size(), c.game());
+                }
+                seen.add(key);
+                for (ApexClans.Member m : c.members()) {
+                    String nick = names.get(m.uuid());
+                    Supabase.Profile p = nick == null ? null : game.get(nick.toLowerCase(Locale.ROOT));
+                    if (p != null) want.put(p.id(), new Want(id, m.role(), ApexClans.iso(m.joined())));
+                }
+            }
+            int changed = 0;
+            for (Supabase.Profile p : game.values()) {
+                Want w = want.get(p.id());
+                if (w == null && p.clanId() != null && existing.containsValue(p.clanId())) {
+                    sb.setClan(p.id(), null, null, null); // вышел из клана в игре
+                    changed++;
+                } else if (w != null && (!w.clanId().equals(p.clanId()) || !w.role().equals(p.clanRole()))) {
+                    sb.setClan(p.id(), w.clanId(), w.role(), w.joined());
+                    changed++;
+                }
+            }
+            int removed = 0;
+            for (Map.Entry<String, String> e : existing.entrySet()) {
+                if (!seen.contains(e.getKey())) {
+                    sb.deleteClan(e.getValue()); // клан распущен в игре
+                    removed++;
+                }
+            }
+            lastClans = TIME.format(Instant.now()) + " — кланов: " + clans.size() + ", новых: " + created
+                    + ", удалено: " + removed + ", изменений в составе: " + changed;
+            if (created > 0 || removed > 0 || changed > 0) getLogger().info("Кланы: " + lastClans);
+        } catch (Exception e) {
+            lastClans = TIME.format(Instant.now()) + " — ошибка: " + e.getMessage();
+            getLogger().warning("Синхронизация кланов не удалась: " + e.getMessage());
         }
     }
 
@@ -413,6 +501,7 @@ public final class SiteSync extends JavaPlugin implements Listener {
             return true;
         }
         s.sendMessage(color("&6[SiteSync] &fПоследняя синхронизация: " + lastSync));
+        s.sendMessage(color("&6[SiteSync] &fКланы ApexClan: " + (apex == null ? "выключено в конфиге" : lastClans)));
         s.sendMessage(color("&6[SiteSync] &fБаза AuthMe: " + authme.file().getPath()
                 + (conflicts.isEmpty() ? "" : " &7· ников, занятых на сайте по почте: " + conflicts.size())));
         return true;

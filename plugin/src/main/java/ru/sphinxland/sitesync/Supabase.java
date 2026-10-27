@@ -23,7 +23,7 @@ import java.util.Map;
  */
 final class Supabase {
 
-    record Profile(String id, String nickname, String source, String lastSeen) {}
+    record Profile(String id, String nickname, String source, String lastSeen, String clanId, String clanRole) {}
 
     static final class ApiException extends Exception {
         final int status;
@@ -75,13 +75,13 @@ final class Supabase {
     }
 
     private static Profile profile(JsonObject o) {
-        return new Profile(str(o, "id"), str(o, "nickname"), str(o, "source"), str(o, "last_seen"));
+        return new Profile(str(o, "id"), str(o, "nickname"), str(o, "source"), str(o, "last_seen"), str(o, "clan_id"), str(o, "clan_role"));
     }
 
     /** Профиль по нику без учёта регистра или null. */
     Profile findProfile(String nick) throws ApiException {
         // ilike считает «_» любым символом — поэтому сверяем ник точно уже здесь
-        JsonArray arr = call("GET", "/rest/v1/profiles?select=id,nickname,source,last_seen&nickname=ilike." + enc(nick), null).getAsJsonArray();
+        JsonArray arr = call("GET", "/rest/v1/profiles?select=id,nickname,source,last_seen,clan_id,clan_role&nickname=ilike." + enc(nick), null).getAsJsonArray();
         for (JsonElement e : arr) {
             Profile p = profile(e.getAsJsonObject());
             if (nick.equalsIgnoreCase(p.nickname())) return p;
@@ -94,7 +94,7 @@ final class Supabase {
         Map<String, Profile> out = new HashMap<>();
         int from = 0, page = 1000;
         while (true) {
-            JsonArray arr = call("GET", "/rest/v1/profiles?select=id,nickname,source,last_seen&source=eq.game&order=created_at", null,
+            JsonArray arr = call("GET", "/rest/v1/profiles?select=id,nickname,source,last_seen,clan_id,clan_role&source=eq.game&order=created_at", null,
                     "Range-Unit", "items", "Range", from + "-" + (from + page - 1)).getAsJsonArray();
             for (JsonElement e : arr) {
                 Profile p = profile(e.getAsJsonObject());
@@ -168,6 +168,62 @@ final class Supabase {
         if (stats != null) b.add("stats", stats);
         if (skin != null) b.addProperty("skin", skin);
         call("PATCH", "/rest/v1/profiles?id=eq." + enc(id), b, "Prefer", "return=minimal");
+    }
+
+    /* ---------- Кланы из игры (ApexClan) ---------- */
+
+    /** Кланы из игры на сайте: тег в нижнем регистре → id. */
+    Map<String, String> gameClans() throws ApiException {
+        Map<String, String> out = new HashMap<>();
+        JsonArray arr = call("GET", "/rest/v1/clans?select=id,tag&source=eq.game", null).getAsJsonArray();
+        for (JsonElement e : arr) {
+            JsonObject o = e.getAsJsonObject();
+            out.put(str(o, "tag").toLowerCase(Locale.ROOT), str(o, "id"));
+        }
+        return out;
+    }
+
+    private static JsonObject clanBody(String name, boolean open, int members, JsonObject game) {
+        JsonObject b = new JsonObject();
+        b.addProperty("name", name);
+        b.addProperty("tag", name); // в ApexClan название клана и есть его тег
+        b.addProperty("open", open);
+        b.addProperty("members", members);
+        b.add("game", game);
+        return b;
+    }
+
+    /** Новый клан из игры (флаг по умолчанию — его потом рисуют на сайте). Возвращает id. */
+    String insertClan(String name, boolean open, int members, String createdAt, JsonObject game, String flag) throws ApiException {
+        JsonObject b = clanBody(name, open, members, game);
+        b.addProperty("source", "game");
+        b.addProperty("flag", flag);
+        if (createdAt != null) b.addProperty("created_at", createdAt);
+        JsonArray r = call("POST", "/rest/v1/clans?select=id", b, "Prefer", "return=representation").getAsJsonArray();
+        return r.get(0).getAsJsonObject().get("id").getAsString();
+    }
+
+    /** Обновляет клан из игры. Флаг и описание с сайта не трогает. */
+    void updateClan(String id, String name, boolean open, int members, JsonObject game) throws ApiException {
+        call("PATCH", "/rest/v1/clans?id=eq." + enc(id), clanBody(name, open, members, game), "Prefer", "return=minimal");
+    }
+
+    void deleteClan(String id) throws ApiException {
+        call("DELETE", "/rest/v1/clans?id=eq." + enc(id), null, "Prefer", "return=minimal");
+    }
+
+    /** Клан и роль игрока (null — не в клане). */
+    void setClan(String profileId, String clanId, String role, String joinedAt) throws ApiException {
+        JsonObject b = new JsonObject();
+        if (clanId == null) {
+            b.add("clan_id", JsonNull.INSTANCE);
+            b.add("clan_role", JsonNull.INSTANCE);
+        } else {
+            b.addProperty("clan_id", clanId);
+            b.addProperty("clan_role", role);
+            if (joinedAt != null) b.addProperty("clan_joined_at", joinedAt);
+        }
+        call("PATCH", "/rest/v1/profiles?id=eq." + enc(profileId), b, "Prefer", "return=minimal");
     }
 
     /** Снимает статус «в игре» со всех (при запуске и остановке плагина — на случай падения сервера). */

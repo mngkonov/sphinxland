@@ -36,3 +36,9 @@ authme:
 messages:
   ready: "&6[Сайт] &fПрофиль на сайте готов! Входи по нику &e{nick}&f и игровому паролю: &e{url}account.html"
   weak-password: "&6[Сайт] &fСайт не принял твой пароль — он слишком короткий. Смени его командой &e/changepassword&f, чтобы входить на сайт."
+
+# Кланы из ApexClan → страница «Кланы» на сайте и клан в профиле игрока.
+# Плагин только читает yml-файлы кланов ApexClan (ищет их во всей папке плагина).
+apexclan:
+  enabled: true
+  folder: "plugins/ApexClan"

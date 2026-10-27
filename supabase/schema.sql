@@ -45,16 +45,29 @@ alter table public.profiles add column if not exists online boolean not null def
 -- ---------------------------------------------------------
 create table if not exists public.clans (
   id          uuid primary key default gen_random_uuid(),
-  name        text not null check (char_length(name) between 3 and 24),
-  tag         text not null check (tag ~ '^[A-ZА-ЯЁ0-9]{4}$'),  -- ровно 4 буквы/цифры
+  name        text not null,
+  tag         text not null,
   description text check (char_length(description) <= 600),
   flag        text not null check (flag ~ '^[0-9a-f]{96}$'),   -- пиксельный флаг 8×12, цвет = 16 красителей
-  open        boolean not null default true,                    -- true: вступают сразу, false: по заявке
+  open        boolean not null default true,                    -- true: вступают сразу, false: по приглашению
   members     int not null default 0,
   created_at  timestamptz not null default now()
 );
+
+-- Кланы создаются в игре (ApexClan) и переносятся на сайт плагином SiteSync.
+-- Название клана в ApexClan и есть его тег: 2–16 латинских букв и цифр.
+alter table public.clans drop constraint if exists clans_name_check;
+alter table public.clans add constraint clans_name_check check (char_length(name) between 2 and 24);
+alter table public.clans drop constraint if exists clans_tag_check;
+alter table public.clans add constraint clans_tag_check check (tag ~ '^[A-Za-z0-9А-Яа-яЁё_]{2,16}$');
+alter table public.clans add column if not exists source text not null default 'site';
+alter table public.clans drop constraint if exists clans_source_check;
+alter table public.clans add constraint clans_source_check check (source in ('site', 'game'));
+-- Данные из игры: {"colors": ["#00f2fe", …], "xp": 63, "prestige": 0, "kills": 0, "deaths": 10, "verified": false, "join": "INVITE_ONLY"}
+alter table public.clans add column if not exists game jsonb not null default '{}';
 create unique index if not exists clans_name_key on public.clans (lower(name));
-create unique index if not exists clans_tag_key  on public.clans (tag);
+drop index if exists public.clans_tag_key;
+create unique index clans_tag_key on public.clans (lower(tag));
 
 -- Участие в клане хранится в профиле: один игрок — один клан
 alter table public.profiles add column if not exists clan_id uuid references public.clans(id) on delete set null;
@@ -120,8 +133,8 @@ begin
   if new.nickname is distinct from old.nickname and old.source <> 'game' then new.verified := false; end if;
   if new.clan_id is null then
     new.clan_role := null; new.clan_joined_at := null;
-  elsif new.clan_id is distinct from old.clan_id then
-    new.clan_joined_at := now();
+  elsif new.clan_id is distinct from old.clan_id and new.clan_joined_at is not distinct from old.clan_joined_at then
+    new.clan_joined_at := now();  -- дату из игры (ApexClan) плагин передаёт сам — её не трогаем
   end if;
   return new;
 end $$;
@@ -135,6 +148,8 @@ language plpgsql security definer set search_path = '' as $$
 declare n int;
 begin
   if cid is null or not exists (select 1 from public.clans where id = cid) then return; end if;
+  -- Кланы из игры ведёт ApexClan: состав, владельца и удаление переносит плагин — здесь их не трогаем
+  if exists (select 1 from public.clans where id = cid and source = 'game') then return; end if;
   select count(*) into n from public.profiles where clan_id = cid;
   if n = 0 then delete from public.clans where id = cid; return; end if;
   update public.clans set members = n where id = cid and members <> n;
@@ -312,19 +327,27 @@ begin
   delete from public.clans where id = me.clan_id;
 end $$;
 
--- Кто может вызывать функции (по умолчанию в Postgres их может вызвать кто угодно — закрываем)
+-- Страница клана на сайте: лидер и модераторы клана из игры рисуют флаг и пишут описание.
+-- Название, состав и роли меняются только в игре (ApexClan).
+create or replace function public.update_clan_page(p_clan uuid, p_description text, p_flag text) returns void
+language plpgsql security definer set search_path = '' as $$
+begin
+  if not exists (select 1 from public.profiles where id = auth.uid() and clan_id = p_clan and clan_role in ('owner', 'officer')) then
+    raise exception 'Менять страницу клана могут только лидер и модераторы'; end if;
+  update public.clans set description = nullif(trim(p_description), ''), flag = lower(p_flag) where id = p_clan;
+end $$;
+
+-- Кто может вызывать функции (по умолчанию в Postgres их может вызвать кто угодно — закрываем).
+-- Создание, вступление, заявки и роли теперь только в игре — эти функции сайту больше не доступны.
 revoke execute on function public.clan_sync(uuid), public.profiles_clan_trg(),
   public.nickname_available(text), public.delete_me(), public.create_clan(text, text, text, text, boolean),
   public.update_clan(uuid, text, text, text, text, boolean), public.join_clan(uuid, text), public.cancel_clan_request(uuid),
   public.clan_request_list(uuid), public.answer_clan_request(uuid, uuid, boolean), public.clan_member_list(uuid),
-  public.leave_clan(), public.kick_clan_member(uuid), public.set_clan_role(uuid, text), public.disband_clan()
+  public.leave_clan(), public.kick_clan_member(uuid), public.set_clan_role(uuid, text), public.disband_clan(),
+  public.update_clan_page(uuid, text, text)
   from public, anon, authenticated;
 grant execute on function public.nickname_available(text), public.clan_member_list(uuid) to anon, authenticated;
-grant execute on function public.delete_me(), public.create_clan(text, text, text, text, boolean),
-  public.update_clan(uuid, text, text, text, text, boolean), public.join_clan(uuid, text), public.cancel_clan_request(uuid),
-  public.clan_request_list(uuid), public.answer_clan_request(uuid, uuid, boolean),
-  public.leave_clan(), public.kick_clan_member(uuid), public.set_clan_role(uuid, text), public.disband_clan()
-  to authenticated;
+grant execute on function public.delete_me(), public.update_clan_page(uuid, text, text) to authenticated;
 
 -- Сайт сразу видит новые таблицы и колонки
 notify pgrst, 'reload schema';
