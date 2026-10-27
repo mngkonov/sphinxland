@@ -9,7 +9,7 @@
 -- ---------------------------------------------------------
 create table if not exists public.profiles (
   id          uuid primary key references auth.users(id) on delete cascade,
-  nickname    text not null check (nickname ~ '^[A-Za-z0-9_][A-Za-z0-9_ ]{1,14}[A-Za-z0-9_]$'),
+  nickname    text not null,
   platform    text not null default 'java' check (platform in ('java', 'bedrock')),
   bio         text check (char_length(bio) <= 300),
   discord     text check (char_length(discord) <= 40),
@@ -22,6 +22,16 @@ create table if not exists public.profiles (
   created_at  timestamptz not null default now()
 );
 create unique index if not exists profiles_nickname_key on public.profiles (lower(nickname));
+
+-- Ник: 3–16 символов; у Bedrock-игроков (Floodgate) впереди может стоять префикс «.» или «*»
+alter table public.profiles drop constraint if exists profiles_nickname_check;
+alter table public.profiles add constraint profiles_nickname_check
+  check (nickname ~ '^[.*]?[A-Za-z0-9_][A-Za-z0-9_ ]{1,14}[A-Za-z0-9_]$');
+
+-- Откуда профиль: 'site' — регистрация по почте, 'game' — создан плагином SiteSync из AuthMe
+alter table public.profiles add column if not exists source text not null default 'site';
+alter table public.profiles drop constraint if exists profiles_source_check;
+alter table public.profiles add constraint profiles_source_check check (source in ('site', 'game'));
 
 -- ---------------------------------------------------------
 -- КЛАНЫ
@@ -94,7 +104,12 @@ grant select on public.clan_requests to authenticated;
 -- Смена ника снимает подтверждение; уход из клана очищает роль; вход — ставит дату
 create or replace function public.profiles_guard() returns trigger language plpgsql as $$
 begin
-  if new.nickname is distinct from old.nickname then new.verified := false; end if;
+  -- Ник аккаунта из игры привязан ко входу на сайт — сам игрок его не меняет
+  if old.source = 'game' and new.nickname is distinct from old.nickname
+     and coalesce(auth.jwt() ->> 'role', '') = 'authenticated' then
+    raise exception 'Ник аккаунта из игры меняется только на сервере';
+  end if;
+  if new.nickname is distinct from old.nickname and old.source <> 'game' then new.verified := false; end if;
   if new.clan_id is null then
     new.clan_role := null; new.clan_joined_at := null;
   elsif new.clan_id is distinct from old.clan_id then

@@ -1,0 +1,36 @@
+# Сборка плагина SiteSync. Готовый SiteSync.jar — в релизе «plugin-latest» репозитория.
+name: Плагин SiteSync
+
+on:
+  push:
+    branches: [main]
+    paths: ["plugin/**", ".github/workflows/plugin.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+      - name: Сборка
+        run: mvn -B -ntp -f plugin/pom.xml package
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SiteSync
+          path: plugin/target/SiteSync.jar
+      - name: Релиз plugin-latest
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete plugin-latest -y --cleanup-tag || true
+          gh release create plugin-latest plugin/target/SiteSync.jar \
+            --title "SiteSync — последняя сборка" \
+            --notes "Плагин для Paper: аккаунты AuthMe автоматически появляются на сайте. Собран из ${GITHUB_SHA::7}. Установка — в README репозитория."
