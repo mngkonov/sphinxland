@@ -23,6 +23,7 @@ import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -67,7 +68,8 @@ public final class SiteSync extends JavaPlugin implements Listener {
     private volatile ApexClans apex; // null — синхронизация кланов выключена
     private volatile String domain, prefix, siteUrl, msgReady, msgWeak;
     private volatile boolean ready;
-    private BukkitTask timer;
+    private BukkitTask timer, statsTimer;
+    private volatile long lastTrim;
     private final Set<String> conflicts = ConcurrentHashMap.newKeySet();
     private final Set<String> skipped = ConcurrentHashMap.newKeySet();
     /** ник в нижнем регистре → id профиля из игры (чтобы не искать его при каждом входе) */
@@ -95,6 +97,10 @@ public final class SiteSync extends JavaPlugin implements Listener {
         if (timer != null) {
             timer.cancel();
             timer = null;
+        }
+        if (statsTimer != null) {
+            statsTimer.cancel();
+            statsTimer = null;
         }
         conflicts.clear();
         skipped.clear();
@@ -137,6 +143,9 @@ public final class SiteSync extends JavaPlugin implements Listener {
             }
             pushOnlinePlayers();
         }, 40L);
+        // Статистика сервера: снимок в основном потоке, отправка в фоне
+        long statsEvery = Math.max(1, c.getLong("stats-interval-minutes", 5)) * 60L * 20L;
+        statsTimer = getServer().getScheduler().runTaskTimer(this, this::pushServerStats, 20L * 20, statsEvery);
         String m = "Работает: база AuthMe — " + db.getPath() + ", синхронизация каждые " + every / 1200 + " мин. (первая — через 15 сек.)";
         getLogger().info(m);
         return m;
@@ -148,9 +157,34 @@ public final class SiteSync extends JavaPlugin implements Listener {
         if (ready && sb != null) {
             try {
                 sb.resetOnline();
+                sb.putServerStats(ServerSnapshot.take(getServer(), false)); // на сайте: «сервер выключен»
             } catch (Supabase.ApiException ignored) {
             }
         }
+    }
+
+    /* ---------- Статистика сервера ---------- */
+
+    /** Раз в несколько минут: текущее состояние сервера + точка на графике онлайна. Основной поток. */
+    private void pushServerStats() {
+        if (!ready || !isEnabled()) return;
+        JsonObject snap = ServerSnapshot.take(getServer(), true);
+        int online = snap.get("online").getAsInt();
+        Double tps = snap.has("tps") ? snap.get("tps").getAsDouble() : null;
+        String minute = Instant.now().truncatedTo(ChronoUnit.MINUTES).toString();
+        Supabase client = sb;
+        getServer().getScheduler().runTaskAsynchronously(this, () -> {
+            try {
+                client.putServerStats(snap);
+                client.addHistory(minute, online, tps);
+                if (System.currentTimeMillis() - lastTrim > 3_600_000L) { // раз в час чистим историю старше 30 дней
+                    client.trimHistory(Instant.now().minus(30, ChronoUnit.DAYS).toString());
+                    lastTrim = System.currentTimeMillis();
+                }
+            } catch (Supabase.ApiException e) {
+                getLogger().warning("Не удалось отправить статистику сервера: " + e.getMessage());
+            }
+        });
     }
 
     /* ---------- Вход и выход: статус, скин, статистика ---------- */

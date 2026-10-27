@@ -349,5 +349,53 @@ revoke execute on function public.clan_sync(uuid), public.profiles_clan_trg(),
 grant execute on function public.nickname_available(text), public.clan_member_list(uuid) to anon, authenticated;
 grant execute on function public.delete_me(), public.update_clan_page(uuid, text, text) to authenticated;
 
+-- ---------------------------------------------------------
+-- СТАТИСТИКА СЕРВЕРА (пишет только плагин SiteSync, сайт — читает)
+-- ---------------------------------------------------------
+-- Текущее состояние: одна строка, обновляется раз в несколько минут
+create table if not exists public.server_stats (
+  id          int primary key default 1 check (id = 1),
+  running     boolean not null default true,
+  online      int not null default 0,
+  max_players int not null default 0,
+  tps         numeric(5, 2),          -- тиков в секунду за последнюю минуту (норма — 20)
+  mspt        numeric(7, 2),          -- среднее время тика, мс (норма — до 50)
+  started_at  timestamptz,            -- когда запущен сервер (аптайм)
+  version     text,
+  worlds      jsonb not null default '[]',  -- [{"name": "world", "env": "NORMAL", "players": 3, "chunks": 812, "entities": 1430}]
+  updated_at  timestamptz not null default now()
+);
+
+-- История онлайна для графика (хранится 30 дней)
+create table if not exists public.online_history (
+  ts      timestamptz primary key,
+  online  int not null,
+  tps     numeric(5, 2)
+);
+
+alter table public.server_stats   enable row level security;
+alter table public.online_history enable row level security;
+drop policy if exists "server_stats_read" on public.server_stats;
+create policy "server_stats_read" on public.server_stats for select using (true);
+drop policy if exists "online_history_read" on public.online_history;
+create policy "online_history_read" on public.online_history for select using (true);
+revoke all on public.server_stats, public.online_history from anon, authenticated;
+grant select on public.server_stats, public.online_history to anon, authenticated;
+
+-- Итоги по игрокам: только суммы, без личных данных (поэтому видны и скрытые профили)
+create or replace function public.server_totals()
+returns table (players bigint, active_day bigint, active_week bigint, playtime_minutes bigint, clans bigint)
+language sql stable security definer set search_path = '' as $$
+  select
+    count(*),
+    count(*) filter (where last_seen > now() - interval '1 day'),
+    count(*) filter (where last_seen > now() - interval '7 days'),
+    coalesce(sum(case when stats ->> 'playtime' ~ '^[0-9]+$' then (stats ->> 'playtime')::bigint end), 0),
+    (select count(*) from public.clans)
+  from public.profiles where source = 'game';
+$$;
+revoke execute on function public.server_totals() from public;
+grant execute on function public.server_totals() to anon, authenticated;
+
 -- Сайт сразу видит новые таблицы и колонки
 notify pgrst, 'reload schema';

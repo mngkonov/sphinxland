@@ -170,6 +170,27 @@ final class Supabase {
         call("PATCH", "/rest/v1/profiles?id=eq." + enc(id), b, "Prefer", "return=minimal");
     }
 
+    /* ---------- Статистика сервера ---------- */
+
+    /** Текущее состояние сервера (одна строка id = 1, перезаписывается). */
+    void putServerStats(JsonObject row) throws ApiException {
+        call("POST", "/rest/v1/server_stats?on_conflict=id", row, "Prefer", "resolution=merge-duplicates,return=minimal");
+    }
+
+    /** Точка истории онлайна для графика. */
+    void addHistory(String ts, int online, Double tps) throws ApiException {
+        JsonObject b = new JsonObject();
+        b.addProperty("ts", ts);
+        b.addProperty("online", online);
+        if (tps != null) b.addProperty("tps", tps);
+        call("POST", "/rest/v1/online_history?on_conflict=ts", b, "Prefer", "resolution=ignore-duplicates,return=minimal");
+    }
+
+    /** Удаляет историю старше указанного времени. */
+    void trimHistory(String before) throws ApiException {
+        call("DELETE", "/rest/v1/online_history?ts=lt." + enc(before), null, "Prefer", "return=minimal");
+    }
+
     /* ---------- Кланы из игры (ApexClan) ---------- */
 
     /** Кланы из игры на сайте: тег в нижнем регистре → id. */
