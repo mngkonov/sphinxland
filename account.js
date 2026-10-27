@@ -34,7 +34,7 @@
   const sb = window.supabase.createClient(sbUrl, String(A.supabaseKey).trim());
 
   /* ---------- Общие помощники ---------- */
-  const NICK_RE = /^[A-Za-z0-9_](?:[A-Za-z0-9_ ]{1,14})[A-Za-z0-9_]$/;
+  const NICK_RE = /^[.*]?[A-Za-z0-9_](?:[A-Za-z0-9_ ]{1,14})[A-Za-z0-9_]$/;
   /* У профиля клан свой (clan_id), но кланы связаны с профилями ещё и через заявки — указываем связь явно */
   const CLAN_EMBED = "clans:clans!profiles_clan_id_fkey(id,name,tag,flag)";
   const REQ_CLAN_EMBED = "clans(id,name,tag,flag)";
@@ -65,6 +65,16 @@
   const findTier = r => r ? tiers.find(t => [t.id, t.name].some(x => String(x || "").toLowerCase() === String(r).toLowerCase())) : null;
   const rankChip = r => { const t = findTier(r); return r ? `<span class="chip chip--rank" style="--c:${esc(t ? t.color : "#ffc83a")}">${esc(t ? t.name : r)}</span>` : ""; };
   const likeEsc = s => s.replace(/[\\%_]/g, "\\$&");
+  /* Аккаунты из игры (плагин SiteSync) входят по нику: ник превращается в служебную почту.
+     Формула должна совпадать с SiteSync.email() в плагине. */
+  const GAME_DOMAIN = String(A.gameEmailDomain || "").trim().toLowerCase();
+  const BE_PREFIX = A.bedrockPrefix ?? ".";
+  function nickEmail(nick) {
+    let n = nick.trim().toLowerCase();
+    if (BE_PREFIX && n.startsWith(BE_PREFIX)) n = "be-" + n.slice(BE_PREFIX.length);
+    return n.replace(/[^a-z0-9_]/g, "-") + "@" + GAME_DOMAIN;
+  }
+  const isGameAccount = (user, p) => (p && p.source === "game") || (!!GAME_DOMAIN && String(user.email || "").endsWith("@" + GAME_DOMAIN));
   function plural(n, one, few, many) { const m10 = n % 10, m100 = n % 100;
     return m10 === 1 && m100 !== 11 ? one : m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14) ? few : many; }
   const errText = e => {
@@ -192,7 +202,8 @@
           </div>
           ${tab === "login" ? `
           <form id="f-login" class="form">
-            <label class="field"><span class="field__label">Почта</span><input class="input" type="email" name="email" autocomplete="email" required></label>
+            <label class="field"><span class="field__label">${GAME_DOMAIN ? "Ник или почта" : "Почта"}</span><input class="input" type="text" name="login" autocomplete="username" required>
+              ${GAME_DOMAIN ? `<span class="field__hint">Зарегистрирован на сервере? Входи по нику и паролю из игры — профиль уже ждёт.</span>` : ""}</label>
             <label class="field"><span class="field__label">Пароль</span><input class="input" type="password" name="password" autocomplete="current-password" required></label>
             <button class="btn btn--primary btn--block">Войти <span class="arr">→</span></button>
             <p class="form__msg" id="m-login"></p>
@@ -212,6 +223,7 @@
           </form>` : `
           <form id="f-forgot" class="form">
             <p class="muted">Введи почту — пришлём ссылку для нового пароля.</p>
+            ${GAME_DOMAIN ? `<p class="note">Входишь по нику? Пароль на сайте — тот же, что в игре. Смени его на сервере командой <b>/changepassword</b>, и он обновится здесь сам.</p>` : ""}
             <label class="field"><span class="field__label">Почта</span><input class="input" type="email" name="email" autocomplete="email" required></label>
             <button class="btn btn--primary btn--block">Отправить ссылку</button>
             <p class="form__msg" id="m-forgot"></p>
@@ -223,10 +235,15 @@
       $("forgot")?.addEventListener("click", () => viewAuth("forgot"));
 
       $("f-login")?.addEventListener("submit", async e => {
-        e.preventDefault(); const f = e.target; lock(f, true); msg("m-login", "");
-        const { error } = await sb.auth.signInWithPassword({ email: f.email.value.trim(), password: f.password.value });
+        e.preventDefault(); const f = e.target; msg("m-login", "");
+        const login = f.login.value.trim(), byNick = !login.includes("@");
+        if (byNick && !GAME_DOMAIN) return msg("m-login", "Введи почту, с которой регистрировался.");
+        lock(f, true);
+        const { error } = await sb.auth.signInWithPassword({ email: byNick ? nickEmail(login) : login, password: f.password.value });
         lock(f, false);
-        if (error) return msg("m-login", errText(error));
+        if (error) return msg("m-login", byNick && /Invalid login credentials/i.test(error.message)
+          ? "Неверный ник или пароль. Пароль — тот же, что в игре. Если регистрировался на сервере давно, зайди в игру и введи /login — после этого пароль заработает и здесь."
+          : errText(error));
         boot();
       });
 
@@ -238,7 +255,7 @@
         try {
           const { data: free, error: e1 } = await sb.rpc("nickname_available", { n: nickname });
           if (e1) throw e1;
-          if (!free) { lock(f, false); return msg("m-signup", "Этот ник уже занят. Если это твой ник — напиши администрации в Discord."); }
+          if (!free) { lock(f, false); return msg("m-signup", GAME_DOMAIN ? "Этот ник уже есть на сайте. Если ты играешь под ним на сервере — открой вкладку «Вход» и войди по нику и игровому паролю." : "Этот ник уже занят. Если это твой ник — напиши администрации в Discord."); }
           const { data, error } = await sb.auth.signUp({ email: f.email.value.trim(), password: f.password.value,
             options: { data: { nickname, platform }, emailRedirectTo: accountUrl } });
           if (error) throw error;
@@ -305,7 +322,7 @@
     /* ---------- Кабинет ---------- */
     async function viewDashboard(user, p) {
       const online = (await onlineNames()).has(p.nickname.toLowerCase());
-      const tier = findTier(p.rank);
+      const tier = findTier(p.rank), game = isGameAccount(user, p);
       accRoot.innerHTML = `
         <div class="dash-head">
           <div><span class="head__label caps">Мой профиль</span><h1 class="head__title">Привет, ${esc(p.nickname)}!</h1></div>
@@ -335,7 +352,8 @@
             <form class="card-box form" id="f-profile">
               <h3>Настройки профиля</h3>
               <div class="grid-2">
-                <label class="field"><span class="field__label">Ник</span><input class="input" name="nickname" maxlength="16" value="${esc(p.nickname)}" required></label>
+                <label class="field"><span class="field__label">Ник</span><input class="input" name="nickname" maxlength="17" value="${esc(p.nickname)}" required ${game ? "readonly" : ""}>
+                  ${game ? `<span class="field__hint">Ник из игры — меняется только на сервере.</span>` : ""}</label>
                 <label class="field"><span class="field__label">Платформа</span><select class="input" name="platform"><option value="java">Java</option><option value="bedrock" ${p.platform === "bedrock" ? "selected" : ""}>Bedrock</option></select></label>
               </div>
               <label class="field"><span class="field__label">Discord</span><input class="input" name="discord" maxlength="40" value="${esc(p.discord || "")}" placeholder="nick"></label>
@@ -344,7 +362,11 @@
               <button class="btn btn--primary">Сохранить</button>
               <p class="form__msg" id="m-profile"></p>
             </form>
-            <form class="card-box form" id="f-pass">
+            ${game ? `<div class="card-box">
+              <h3>Аккаунт из игры</h3>
+              <p class="muted">Ты входишь на сайт по нику <b>${esc(p.nickname)}</b> и паролю из игры (AuthMe).</p>
+              <p class="muted">Сменить пароль — командой <b>/changepassword</b> на сервере: здесь он обновится сам.</p>
+            </div>` : `<form class="card-box form" id="f-pass">
               <h3>Аккаунт</h3>
               <p class="muted">Почта: <b>${esc(user.email)}</b></p>
               <label class="field"><span class="field__label">Новый пароль</span><input class="input" type="password" name="password" minlength="8" autocomplete="new-password" required></label>
@@ -355,7 +377,7 @@
               <h3>Удалить профиль</h3>
               <p class="muted">Профиль и аккаунт удалятся навсегда. На игру на сервере это не влияет.</p>
               <button class="btn btn--dark" id="delete">Удалить</button>
-            </div>
+            </div>`}
           </div>
         </div>`;
 
@@ -390,14 +412,14 @@
         try { localStorage.setItem("sl-nick", data.nickname); } catch {}
         toast("Профиль сохранён"); viewDashboard(user, data);
       });
-      $("f-pass").addEventListener("submit", async e => {
+      $("f-pass")?.addEventListener("submit", async e => {
         e.preventDefault(); const f = e.target; lock(f, true);
         const { error } = await sb.auth.updateUser({ password: f.password.value });
         lock(f, false);
         if (error) return msg("m-pass", errText(error));
         f.reset(); msg("m-pass", "Пароль изменён.", true);
       });
-      $("delete").addEventListener("click", async () => {
+      $("delete")?.addEventListener("click", async () => {
         const typed = prompt(`Чтобы удалить профиль навсегда, введи свой ник: ${p.nickname}`);
         if (typed == null) return;
         if (typed.trim() !== p.nickname) return toast("Ник не совпадает — профиль не удалён");
