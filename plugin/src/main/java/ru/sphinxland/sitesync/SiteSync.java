@@ -1,6 +1,9 @@
 package ru.sphinxland.sitesync;
 
+import com.destroystokyo.paper.profile.PlayerProfile;
 import com.google.gson.JsonObject;
+
+import net.kyori.adventure.key.Key;
 
 import org.bukkit.ChatColor;
 import org.bukkit.command.Command;
@@ -8,6 +11,7 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
+import org.bukkit.event.Event;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerCommandPreprocessEvent;
@@ -18,6 +22,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitTask;
 
 import java.io.File;
+import java.lang.reflect.Method;
 import java.security.SecureRandom;
 import java.time.Instant;
 import java.time.OffsetDateTime;
@@ -47,6 +52,8 @@ import java.util.regex.Pattern;
  *  2. Когда игрок вводит /register, /login или /changepassword, плагин запоминает
  *     введённый пароль, через пару секунд сверяет его с AuthMe (AuthMeApi.checkPassword)
  *     и, если пароль верный, ставит такой же пароль аккаунту на сайте.
+ *     В AuthMe 6 вход и регистрация идут через окно ещё до входа в мир — пароль из окна
+ *     держится в памяти до входа игрока и проверяется так же.
  *     Пароль нигде не сохраняется и не пишется в лог, на сайт он уходит по HTTPS.
  *  3. При входе и выходе игрока (и раз в N минут, пока он онлайн) отправляет на сайт
  *     статус «в игре», скин из профиля (его подставляет SkinsRestorer) и статистику.
@@ -83,6 +90,7 @@ public final class SiteSync extends JavaPlugin implements Listener {
     public void onEnable() {
         saveDefaultConfig();
         getServer().getPluginManager().registerEvents(this, this);
+        hookDialogs();
         loadSettings();
     }
 
@@ -192,6 +200,7 @@ public final class SiteSync extends JavaPlugin implements Listener {
     @EventHandler(priority = EventPriority.MONITOR)
     public void onJoin(PlayerJoinEvent e) {
         if (!ready) return;
+        takePending(e.getPlayer());
         UUID id = e.getPlayer().getUniqueId();
         // SkinsRestorer применяет скин чуть позже входа — ждём 3 секунды
         getServer().getScheduler().runTaskLater(this, () -> {
@@ -250,6 +259,61 @@ public final class SiteSync extends JavaPlugin implements Listener {
     }
 
     /* ---------- Пароль из команд AuthMe ---------- */
+
+    /* ---------- Пароль из окна входа AuthMe 6 (до входа в мир) ---------- */
+
+    private static final String DIALOG_LOGIN = "authme:prejoin-login/submit";
+    private static final String DIALOG_REGISTER = "authme:prejoin-register/submit";
+    /** Пароль из окна, пока игрок ещё не вошёл в мир. Только в памяти, живёт до входа (максимум 5 минут). */
+    record Pending(String password, boolean announce, long at) {}
+    private final Map<String, Pending> pending = new ConcurrentHashMap<>();
+
+    /**
+     * AuthMe 6 на Paper показывает окно входа/регистрации ещё до входа в мир и получает ответ
+     * через PlayerCustomClickEvent (Paper 1.21.6+). Подписываемся рефлексией, чтобы плагин
+     * собирался под старый API и не падал на серверах без окон.
+     */
+    @SuppressWarnings("unchecked")
+    private void hookDialogs() {
+        try {
+            Class<? extends Event> cls = (Class<? extends Event>) Class.forName("io.papermc.paper.event.player.PlayerCustomClickEvent");
+            Class<?> configConn = Class.forName("io.papermc.paper.connection.PlayerConfigurationConnection");
+            Class<?> viewCls = Class.forName("io.papermc.paper.dialog.DialogResponseView");
+            Method getId = cls.getMethod("getIdentifier"), getConn = cls.getMethod("getCommonConnection"),
+                    getView = cls.getMethod("getDialogResponseView"), getProfile = configConn.getMethod("getProfile"),
+                    getText = viewCls.getMethod("getText", String.class);
+            getServer().getPluginManager().registerEvent(cls, this, EventPriority.MONITOR, (l, ev) -> {
+                if (!ready || !cls.isInstance(ev)) return;
+                try {
+                    String id = ((Key) getId.invoke(ev)).asString();
+                    boolean register = DIALOG_REGISTER.equals(id);
+                    if (!register && !DIALOG_LOGIN.equals(id)) return;
+                    Object conn = getConn.invoke(ev);
+                    Object view = getView.invoke(ev);
+                    if (!configConn.isInstance(conn) || view == null) return;
+                    String name = ((PlayerProfile) getProfile.invoke(conn)).getName();
+                    String password = (String) getText.invoke(view, "password");
+                    if (name == null || password == null || password.isBlank()) return;
+                    pending.put(name.toLowerCase(Locale.ROOT), new Pending(password, register, System.currentTimeMillis()));
+                } catch (ReflectiveOperationException | ClassCastException ex) {
+                    getLogger().warning("Не удалось прочитать окно AuthMe: " + ex.getClass().getSimpleName());
+                }
+            }, this, false);
+            getLogger().info("Окна входа и регистрации AuthMe подключены.");
+        } catch (ClassNotFoundException | NoSuchMethodException ignored) {
+            // Paper старше 1.21.6 — окон нет, остаются команды
+        }
+    }
+
+    /** Игрок вошёл в мир после окна: AuthMe уже проверил пароль или вот-вот допишет регистрацию. */
+    private void takePending(Player p) {
+        Pending pw = pending.remove(p.getName().toLowerCase(Locale.ROOT));
+        pending.values().removeIf(x -> System.currentTimeMillis() - x.at() > 300_000L);
+        if (pw == null || System.currentTimeMillis() - pw.at() > 300_000L) return;
+        String name = p.getName();
+        UUID id = p.getUniqueId();
+        getServer().getScheduler().runTaskLaterAsynchronously(this, () -> afterAuth(name, id, pw.password(), pw.announce(), 1), 60L);
+    }
 
     @EventHandler(priority = EventPriority.MONITOR)
     public void onCommand(PlayerCommandPreprocessEvent e) {
